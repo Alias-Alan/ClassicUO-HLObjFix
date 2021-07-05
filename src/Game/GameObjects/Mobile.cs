@@ -1,44 +1,131 @@
 #region license
-// Copyright (C) 2020 ClassicUO Development Community on Github
+
+// Copyright (c) 2021, andreakarasho
+// All rights reserved.
 // 
-// This project is an alternative client for the game Ultima Online.
-// The goal of this is to develop a lightweight client considering
-// new technologies.
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+// 1. Redistributions of source code must retain the above copyright
+//    notice, this list of conditions and the following disclaimer.
+// 2. Redistributions in binary form must reproduce the above copyright
+//    notice, this list of conditions and the following disclaimer in the
+//    documentation and/or other materials provided with the distribution.
+// 3. All advertising materials mentioning features or use of this software
+//    must display the following acknowledgement:
+//    This product includes software developed by andreakarasho - https://github.com/andreakarasho
+// 4. Neither the name of the copyright holder nor the
+//    names of its contributors may be used to endorse or promote products
+//    derived from this software without specific prior written permission.
 // 
-//  This program is free software: you can redistribute it and/or modify
-//  it under the terms of the GNU General Public License as published by
-//  the Free Software Foundation, either version 3 of the License, or
-//  (at your option) any later version.
-// 
-//  This program is distributed in the hope that it will be useful,
-//  but WITHOUT ANY WARRANTY; without even the implied warranty of
-//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//  GNU General Public License for more details.
-// 
-//  You should have received a copy of the GNU General Public License
-//  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ''AS IS'' AND ANY
+// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+// WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+// DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY
+// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+// (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+// LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+// ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
 #endregion
 
 using System;
-using System.Collections.Generic;
-
 using ClassicUO.Configuration;
 using ClassicUO.Data;
 using ClassicUO.Game.Data;
 using ClassicUO.Game.Managers;
-using ClassicUO.Game.Scenes;
 using ClassicUO.Game.UI.Gumps;
 using ClassicUO.IO.Resources;
+using ClassicUO.Resources;
 using ClassicUO.Utility;
 using ClassicUO.Utility.Collections;
-using ClassicUO.Utility.Logging;
-
 using Microsoft.Xna.Framework;
 
 namespace ClassicUO.Game.GameObjects
 {
     internal partial class Mobile : Entity
     {
+        private static readonly QueuedPool<Mobile> _pool = new QueuedPool<Mobile>
+        (
+            Constants.PREDICTABLE_CHUNKS,
+            mobile =>
+            {
+                mobile.IsDestroyed = false;
+                mobile.Graphic = 0;
+                mobile.Steps.Clear();
+                mobile.Offset = Vector3.Zero;
+                mobile.SpeedMode = CharacterSpeedType.Normal;
+                mobile.Race = 0;
+                mobile.Hits = 0;
+                mobile.HitsMax = 0;
+                mobile.Mana = 0;
+                mobile.ManaMax = 0;
+                mobile.Stamina = 0;
+                mobile.StaminaMax = 0;
+                mobile.NotorietyFlag = 0;
+                mobile.IsRenamable = false;
+                mobile.Flags = 0;
+                mobile.IsFemale = false;
+                mobile.InWarMode = false;
+                mobile.IsRunning = false;
+                mobile.AnimationInterval = 0;
+                mobile.AnimationFrameCount = 0;
+                mobile.AnimationRepeatMode = 1;
+                mobile.AnimationRepeat = false;
+                mobile.AnimationFromServer = false;
+                mobile.AnimationForwardDirection = false;
+                mobile.LastStepSoundTime = 0;
+                mobile.StepSoundOffset = 0;
+                mobile.Title = string.Empty;
+                mobile.AnimationGroup = 0xFF;
+                mobile._isDead = false;
+                mobile._isSA_Poisoned = false;
+                mobile._lastAnimationIdleDelay = 0;
+                mobile.X = 0;
+                mobile.Y = 0;
+                mobile.Z = 0;
+                mobile.Direction = 0;
+                mobile.LastAnimationChangeTime = Time.Ticks;
+                mobile.TextContainer?.Clear();
+                mobile.HitsPercentage = 0;
+                mobile.HitsTexture?.Destroy();
+                mobile.HitsTexture = null;
+                mobile.IsFlipped = false;
+                mobile.FrameInfo = Rectangle.Empty;
+                mobile.UseObjectHandles = false;
+                mobile.ClosedObjectHandles = false;
+                mobile.ObjectHandlesOpened = false;
+                mobile.AlphaHue = 0;
+                mobile.AllowedToDraw = true;
+                mobile.IsClicked = false;
+                mobile.RemoveFromTile();
+                mobile.Clear();
+                mobile.Next = null;
+                mobile.Previous = null;
+                mobile.Name = null;
+                
+                mobile.HitsRequest = HitsRequestStatus.None;
+
+                mobile.CalculateRandomIdleTime();
+            }
+        );
+
+        private static readonly byte[,] _animationIdle =
+        {
+            {
+                (byte) LOW_ANIMATION_GROUP.LAG_FIDGET_1, (byte) LOW_ANIMATION_GROUP.LAG_FIDGET_2,
+                (byte) LOW_ANIMATION_GROUP.LAG_FIDGET_1
+            },
+            {
+                (byte) HIGHT_ANIMATION_GROUP.HAG_FIDGET_1, (byte) HIGHT_ANIMATION_GROUP.HAG_FIDGET_2,
+                (byte) HIGHT_ANIMATION_GROUP.HAG_FIDGET_1
+            },
+            {
+                (byte) PEOPLE_ANIMATION_GROUP.PAG_FIDGET_1, (byte) PEOPLE_ANIMATION_GROUP.PAG_FIDGET_2,
+                (byte) PEOPLE_ANIMATION_GROUP.PAG_FIDGET_3
+            }
+        };
         private bool _isDead;
         private bool _isSA_Poisoned;
         private long _lastAnimationIdleDelay;
@@ -49,119 +136,51 @@ namespace ClassicUO.Game.GameObjects
             CalculateRandomIdleTime();
         }
 
+        // ## BEGIN - END ## // HEALTHBAR
+        public uint FlashTimeTick { get; set; } = 0;
+        public ushort OldHits { get; set; } = 0;
+        // ## BEGIN - END ## // HEALTHBAR
+        // ## BEGIN - END ## // OUTLANDS
+        /*
+        public uint SummonTimeTick { get; set; } = 0;
+        public int SummonTime { get; set; } = 0;
+        public uint PeaceTimeTick { get; set; } = 0;
+        public int PeaceTime { get; set; } = 0;
+        public uint HamstrungTimeTick { get; set; } = 0;
+        public uint HamstrungTime { get; set; } = 0;
+        */
+        // ## BEGIN - END ## // OUTLANDS
+
         public Mobile() : base(0)
         {
-
-        }
-
-        private static readonly QueuedPool<Mobile> _pool = new QueuedPool<Mobile>(Constants.PREDICTABLE_CHUNKS, (mobile) =>
-        {
-            mobile.IsDestroyed = false;
-            mobile.Graphic = 0;
-            mobile.Steps.Clear();
-            mobile.Offset = Vector3.Zero;
-            mobile.SpeedMode = CharacterSpeedType.Normal;
-            mobile.DeathScreenTimer = 0;
-            mobile.Race = 0;
-            mobile.Hits = 0;
-            mobile.HitsMax = 0;
-            mobile.Mana = 0;
-            mobile.ManaMax = 0;
-            mobile.Stamina = 0;
-            mobile.StaminaMax = 0;
-            mobile.NotorietyFlag = 0;
-            mobile.IsRenamable = false;
-            mobile.Flags = 0;
-            mobile.IsFemale = false;
-            mobile.InWarMode = false;
-            mobile.IsRunning = false;
-            mobile.AnimationInterval = 0;
-            mobile.AnimationFrameCount = 0;
-            mobile.AnimationRepeatMode = 1;
-            mobile.AnimationRepeat = false;
-            mobile.AnimationFromServer = false;
-            mobile.AnimationForwardDirection = false;
-            mobile.LastStepSoundTime = 0;
-            mobile.StepSoundOffset = 0;
-            mobile.Title = string.Empty;
-            mobile.AnimationGroup = 0xFF;
-            mobile._isDead = false;
-            mobile._isSA_Poisoned = false;
-            mobile._lastAnimationIdleDelay = 0;
-            mobile.X = 0;
-            mobile.Y = 0;
-            mobile.Z = 0;
-            mobile.Direction = 0;
-            mobile.LastAnimationChangeTime = Time.Ticks;
-            mobile.TextContainer?.Clear();
-            mobile.HitsPercentage = 0;
-            mobile.HitsTexture?.Destroy();
-            mobile.HitsTexture = null;
-            mobile.IsFlipped = false;
-            mobile.FrameInfo = Rectangle.Empty;
-            mobile.UseObjectHandles = false;
-            mobile.ClosedObjectHandles = false;
-            mobile.ObjectHandlesOpened = false;
-            mobile.AlphaHue = 0;
-            mobile.AllowedToDraw = true;
-            mobile.IsClicked = false;
-            mobile.RemoveFromTile();
-            mobile.Clear();
-            mobile.Next = null;
-            mobile.Previous = null;
-            mobile.Name = null;
-
-            mobile.CalculateRandomIdleTime();
-        });
-
-
-
-        public static Mobile Create(uint serial)
-        {
-            Mobile mobile = _pool.GetOne();
-            mobile.Serial = serial;
-
-            return mobile;
         }
 
 
         public Deque<Step> Steps { get; } = new Deque<Step>(Constants.MAX_STEP_COUNT);
-        public CharacterSpeedType SpeedMode = CharacterSpeedType.Normal;
-        public long DeathScreenTimer;
-        public bool IsFemale;
-        public RaceType Race;
-        public ushort Mana;
-        public ushort ManaMax;
-        public ushort Stamina;
-        public ushort StaminaMax;
-        public NotorietyFlag NotorietyFlag;
-        public bool IsRenamable;
 
         public bool IsParalyzed => ((byte) Flags & 0x01) != 0;
         public bool IsYellowHits => ((byte) Flags & 0x08) != 0;
         public bool IsPoisoned => Client.Version >= ClientVersion.CV_7000 ? _isSA_Poisoned : ((byte) Flags & 0x04) != 0;
         public bool IgnoreCharacters => ((byte) Flags & 0x10) != 0;
+
         public bool IsDead
         {
-            get => Graphic == 0x0192 ||
-                   Graphic == 0x0193 ||
-                   (Graphic >= 0x025F && Graphic <= 0x0260) ||
-                   Graphic == 0x2B6 || Graphic == 0x02B7 || _isDead;
+            get => Graphic == 0x0192 || Graphic == 0x0193 || Graphic >= 0x025F && Graphic <= 0x0260 || Graphic == 0x2B6 || Graphic == 0x02B7 || _isDead;
             set => _isDead = value;
         }
+
         public bool IsFlying => Client.Version >= ClientVersion.CV_7000 && ((byte) Flags & 0x04) != 0;
+
         public virtual bool InWarMode
         {
             get => ((byte) Flags & 0x40) != 0;
             set { }
         }
-        public bool IsHuman => (Graphic >= 0x0190 && Graphic <= 0x0193) ||
-                               (Graphic >= 0x00B7 && Graphic <= 0x00BA) ||
-                               (Graphic >= 0x025D && Graphic <= 0x0260) ||
-                               Graphic == 0x029A || Graphic == 0x029B ||
-                               Graphic == 0x02B6 || Graphic == 0x02B7 ||
-                               Graphic == 0x03DB || Graphic == 0x03DF || Graphic == 0x03E2 || Graphic == 0x02E8 || Graphic == 0x02E9|| Graphic == 0x04E5; 
+
+        public bool IsHuman => Graphic >= 0x0190 && Graphic <= 0x0193 || Graphic >= 0x00B7 && Graphic <= 0x00BA || Graphic >= 0x025D && Graphic <= 0x0260 || Graphic == 0x029A || Graphic == 0x029B || Graphic == 0x02B6 || Graphic == 0x02B7 || Graphic == 0x03DB || Graphic == 0x03DF || Graphic == 0x03E2 || Graphic == 0x02E8 || Graphic == 0x02E9 || Graphic == 0x04E5;
+
         public bool IsGargoyle => Client.Version >= ClientVersion.CV_7000 && Graphic == 0x029A || Graphic == 0x029B;
+
         public bool IsMounted
         {
             get
@@ -176,6 +195,7 @@ namespace ClassicUO.Game.GameObjects
                 return false;
             }
         }
+
         public bool IsDrivingBoat
         {
             get
@@ -186,30 +206,49 @@ namespace ClassicUO.Game.GameObjects
             }
         }
 
-        public bool IsRunning;
-        public byte AnimationInterval;
-        public byte AnimationFrameCount;
-        public byte AnimationRepeatMode = 1;
-        public bool AnimationRepeat;
-        public bool AnimationFromServer;
+        protected virtual bool IsWalking => LastStepTime > Time.Ticks - Constants.WALKING_DELAY;
         public bool AnimationForwardDirection;
+        public byte AnimationFrameCount;
+        public bool AnimationFromServer;
         public byte AnimationGroup = 0xFF;
+        public byte AnimationInterval;
+        public bool AnimationRepeat;
+        public byte AnimationRepeatMode = 1;
+        public bool IsFemale;
+        public bool IsRenamable;
+
+        public bool IsRunning;
         public long LastStepSoundTime;
+        public ushort Mana;
+        public ushort ManaMax;
+        public NotorietyFlag NotorietyFlag;
+        public RaceType Race;
+        public CharacterSpeedType SpeedMode = CharacterSpeedType.Normal;
+        public ushort Stamina;
+        public ushort StaminaMax;
         public int StepSoundOffset;
         public string Title = string.Empty;
 
-        protected virtual bool IsWalking => LastStepTime > Time.Ticks - Constants.WALKING_DELAY;
 
+        public static Mobile Create(uint serial)
+        {
+            Mobile mobile = _pool.GetOne();
+            mobile.Serial = serial;
+
+            return mobile;
+        }
 
 
         public Item GetSecureTradeBox()
         {
-            for (var i = Items; i != null; i = i.Next)
+            for (LinkedObject i = Items; i != null; i = i.Next)
             {
                 Item it = (Item) i;
 
                 if (it.Graphic == 0x1E5E && it.Layer == 0)
+                {
                     return it;
+                }
             }
 
             return null;
@@ -226,19 +265,23 @@ namespace ClassicUO.Game.GameObjects
             _lastAnimationIdleDelay = Time.Ticks + (TIME + RandomHelper.GetValue(0, TIME));
         }
 
-        public override void Update(double totalMS, double frameMS)
+        public override void Update(double totalTime, double frameTime)
         {
             if (IsDestroyed)
+            {
                 return;
+            }
 
-            base.Update(totalMS, frameMS);
+            base.Update(totalTime, frameTime);
 
             if (_lastAnimationIdleDelay < Time.Ticks)
+            {
                 SetIdleAnimation();
+            }
 
             ProcessAnimation(out _, true);
         }
-        
+
         public void ClearSteps()
         {
             Steps.Clear();
@@ -248,17 +291,24 @@ namespace ClassicUO.Game.GameObjects
         public bool EnqueueStep(int x, int y, sbyte z, Direction direction, bool run)
         {
             if (Steps.Count >= Constants.MAX_STEP_COUNT)
+            {
                 return false;
+            }
 
             GetEndPosition(out int endX, out int endY, out sbyte endZ, out Direction endDir);
 
-            if (endX == x && endY == y && endZ == z && endDir == direction) 
+            if (endX == x && endY == y && endZ == z && endDir == direction)
+            {
                 return true;
+            }
 
             if (Steps.Count == 0)
             {
                 if (!IsWalking)
+                {
                     SetAnimation(0xFF);
+                }
+
                 LastStepTime = Time.Ticks;
             }
 
@@ -318,7 +368,15 @@ namespace ClassicUO.Game.GameObjects
         }
 
 
-        public void SetAnimation(byte id, byte interval = 0, byte frameCount = 0, byte repeatCount = 0, bool repeat = false, bool forward = false)
+        public void SetAnimation
+        (
+            byte id,
+            byte interval = 0,
+            byte frameCount = 0,
+            byte repeatCount = 0,
+            bool repeat = false,
+            bool forward = false
+        )
         {
             AnimationGroup = id;
             AnimIndex = (sbyte) (forward ? 0 : frameCount);
@@ -352,7 +410,9 @@ namespace ClassicUO.Game.GameObjects
                 ushort graphic = GetGraphicForAnimation();
 
                 if (graphic >= Constants.MAX_ANIMATIONS_DATA_INDEX_COUNT)
+                {
                     return;
+                }
 
                 ANIMATION_GROUPS_TYPE type = AnimationsLoader.Instance.DataIndex[graphic].Type;
 
@@ -369,16 +429,21 @@ namespace ClassicUO.Game.GameObjects
                         if (graphic != newGraphic)
                         {
                             graphic = newGraphic;
+
                             ANIMATION_GROUPS_TYPE newType = AnimationsLoader.Instance.DataIndex[graphic].Type;
 
-                            if (newType != type) type = newType;
+                            if (newType != type)
+                            {
+                                type = newType;
+                            }
                         }
                     }
                 }
 
                 ANIMATION_FLAGS flags = AnimationsLoader.Instance.DataIndex[graphic].Flags;
+
                 ANIMATION_GROUPS animGroup = ANIMATION_GROUPS.AG_NONE;
-                
+
                 bool isLowExtended = false;
                 bool isLow = false;
 
@@ -414,16 +479,22 @@ namespace ClassicUO.Game.GameObjects
                 }
 
                 if (animGroup == 0)
+                {
                     return;
+                }
 
                 if ((flags & ANIMATION_FLAGS.AF_USE_UOP_ANIMATION) != 0)
                 {
                     if (animGroup != ANIMATION_GROUPS.AG_PEOPLE)
                     {
                         if (InWarMode)
+                        {
                             AnimationGroup = 28;
+                        }
                         else
+                        {
                             AnimationGroup = 26;
+                        }
 
                         return;
                     }
@@ -443,11 +514,15 @@ namespace ClassicUO.Game.GameObjects
                     }
                 }
 
-                AnimationGroup = _animationIdle[(byte)animGroup - 1, RandomHelper.GetValue(0, 2)];
+                int first_value = RandomHelper.GetValue(0, 2);
+
+                byte original_value = AnimationGroup;
+
+                AnimationGroup = _animationIdle[(byte) animGroup - 1, first_value];
 
                 if (isLowExtended && AnimationGroup == 18)
                 {
-                    if (!AnimationsLoader.Instance.AnimationExists(graphic, 18) && AnimationsLoader.Instance.AnimationExists(graphic, 17))
+                    if (!AnimationsLoader.Instance.IsAnimationExists(graphic, 18) && AnimationsLoader.Instance.IsAnimationExists(graphic, 17))
                     {
                         AnimationGroup = GetReplacedObjectAnimation(graphic, 17);
                     }
@@ -456,21 +531,27 @@ namespace ClassicUO.Game.GameObjects
                         AnimationGroup = 1;
                     }
                 }
+
+                if (!AnimationsLoader.Instance.IsAnimationExists(graphic, AnimationGroup))
+                {
+                    if (first_value == 0)
+                    {
+                        first_value = 1;
+                    }
+                    else
+                    {
+                        first_value = 0;
+                    }
+
+                    AnimationGroup = _animationIdle[(byte) animGroup - 1, first_value];
+
+                    if (!AnimationsLoader.Instance.IsAnimationExists(graphic, AnimationGroup))
+                    {
+                        SetAnimation(original_value);
+                    }
+                }
             }
         }
-
-        private static readonly byte[,] _animationIdle =
-        {
-            {
-                (byte) LOW_ANIMATION_GROUP.LAG_FIDGET_1, (byte) LOW_ANIMATION_GROUP.LAG_FIDGET_2, (byte) LOW_ANIMATION_GROUP.LAG_FIDGET_1
-            },
-            {
-                (byte) HIGHT_ANIMATION_GROUP.HAG_FIDGET_1, (byte) HIGHT_ANIMATION_GROUP.HAG_FIDGET_2, (byte) HIGHT_ANIMATION_GROUP.HAG_FIDGET_1
-            },
-            {
-                (byte) PEOPLE_ANIMATION_GROUP.PAG_FIDGET_1, (byte) PEOPLE_ANIMATION_GROUP.PAG_FIDGET_2, (byte) PEOPLE_ANIMATION_GROUP.PAG_FIDGET_3
-            }
-        };
 
         protected virtual bool NoIterateAnimIndex()
         {
@@ -479,7 +560,7 @@ namespace ClassicUO.Game.GameObjects
 
         private void ProcessFootstepsSound()
         {
-            if (ProfileManager.Current.EnableFootstepsSound && IsHuman && !IsHidden && !IsDead && !IsFlying)
+            if (ProfileManager.CurrentProfile.EnableFootstepsSound && IsHuman && !IsHidden && !IsDead && !IsFlying)
             {
                 long ticks = Time.Ticks;
 
@@ -528,34 +609,16 @@ namespace ClassicUO.Game.GameObjects
                 sbyte frameIndex = AnimIndex;
 
                 if (AnimationFromServer && !AnimationForwardDirection)
+                {
                     frameIndex--;
+                }
                 else
+                {
                     frameIndex++;
+                }
 
                 ushort id = GetGraphicForAnimation();
                 byte animGroup = GetGroupForAnimation(this, id, true);
-
-                //if (animGroup == 64 || animGroup == 65)
-                //{
-                //    animGroup = (byte) (InWarMode ? 65 : 64);
-                //    AnimationGroup = animGroup;
-                //}
-
-                //Item mount = HasEquipment ? Equipment[(int) Layer.Mount] : null;
-
-                //if (mount != null)
-                //{
-                //    switch (animGroup)
-                //    {
-                //        case (byte)PEOPLE_ANIMATION_GROUP.PAG_FIDGET_1:
-                //        case (byte)PEOPLE_ANIMATION_GROUP.PAG_FIDGET_2:
-                //        case (byte)PEOPLE_ANIMATION_GROUP.PAG_FIDGET_3:
-                //            id = mount.GetGraphicForAnimation();
-                //            animGroup = GetGroupForAnimation(this, id, true);
-
-                //            break;
-                //    }
-                //}
 
                 bool mirror = false;
                 AnimationsLoader.Instance.GetAnimDirection(ref dir, ref mirror);
@@ -564,16 +627,15 @@ namespace ClassicUO.Game.GameObjects
                 if (id < Constants.MAX_ANIMATIONS_DATA_INDEX_COUNT && dir < 5)
                 {
                     ushort hue = 0;
-                    var direction = AnimationsLoader.Instance.GetBodyAnimationGroup(ref id, ref animGroup, ref hue, true).Direction[dir];
-                    AnimationsLoader.Instance.AnimID = id;
-                    AnimationsLoader.Instance.AnimGroup = animGroup;
-                    AnimationsLoader.Instance.Direction = dir;
 
+                    AnimationDirection direction = AnimationsLoader.Instance.GetBodyAnimationGroup(ref id, ref animGroup, ref hue, true).Direction[dir];
 
                     if (direction != null && (direction.FrameCount == 0 || direction.Frames == null))
-                        AnimationsLoader.Instance.LoadDirectionGroup(ref direction);
+                    {
+                        AnimationsLoader.Instance.LoadAnimationFrames(id, animGroup, dir, ref direction);
+                    }
 
-                    if (direction != null && ((direction.Address != 0 && direction.Size != 0 && direction.FileIndex != -1) || direction.IsUOP))
+                    if (direction != null && direction.FrameCount != 0)
                     {
                         direction.LastAccessTime = Time.Ticks;
                         int fc = direction.FrameCount;
@@ -588,12 +650,14 @@ namespace ClassicUO.Game.GameObjects
                             }
                             else
                             {
-                                fc -= AnimationFrameCount;
+                                /*fc -= AnimationFrameCount;
 
                                 if (fc <= 0)
-                                    fc = AnimationFrameCount;
+                                    fc = AnimationFrameCount;*/
+
+                                fc = AnimationFrameCount;
                             }
-                                
+
                             if (AnimationForwardDirection)
                             {
                                 if (frameIndex >= fc)
@@ -609,10 +673,15 @@ namespace ClassicUO.Game.GameObjects
                                             repCount--;
                                             AnimationRepeatMode = repCount;
                                         }
-                                        else if (repCount == 1) SetAnimation(0xFF);
+                                        else if (repCount == 1)
+                                        {
+                                            SetAnimation(0xFF);
+                                        }
                                     }
                                     else
+                                    {
                                         SetAnimation(0xFF);
+                                    }
                                 }
                             }
                             else
@@ -620,9 +689,13 @@ namespace ClassicUO.Game.GameObjects
                                 if (frameIndex < 0)
                                 {
                                     if (fc == 0)
+                                    {
                                         frameIndex = 0;
+                                    }
                                     else
+                                    {
                                         frameIndex = (sbyte) (fc - 1);
+                                    }
 
                                     if (AnimationRepeat)
                                     {
@@ -634,10 +707,14 @@ namespace ClassicUO.Game.GameObjects
                                             AnimationRepeatMode = repCount;
                                         }
                                         else if (repCount == 1)
+                                        {
                                             SetAnimation(0xFF);
+                                        }
                                     }
                                     else
+                                    {
                                         SetAnimation(0xFF);
+                                    }
                                 }
                             }
                         }
@@ -669,6 +746,12 @@ namespace ClassicUO.Game.GameObjects
                     World.RemoveMobile(Serial);
                 }
 
+                //for (var item = Items; item != null; item = item.Next)
+                //{
+                //    Item it = (Item)item;
+                //    it.ProcessAnimation(out _, true);
+                //}
+
                 LastAnimationChangeTime = Time.Ticks + currentDelay;
             }
         }
@@ -684,39 +767,29 @@ namespace ClassicUO.Game.GameObjects
                 dir = step.Direction;
 
                 if (step.Run)
+                {
                     dir &= 7;
+                }
 
                 if (evalutate)
                 {
                     if (AnimationFromServer)
-                        SetAnimation(0xFF);
-
-                    int delay = (int) Time.Ticks - (int) LastStepTime;
-                    bool mounted = IsMounted ||
-                                  SpeedMode == CharacterSpeedType.FastUnmount ||
-                                  SpeedMode == CharacterSpeedType.FastUnmountAndCantRun ||
-                                  IsFlying;
-                    bool run = step.Run;
-
-                    // seems like it makes characterd naked for some reason
-                    if (Serial != World.Player && Steps.Count > 1)
                     {
-                        if (run)
-                        {
-                            if (delay <= MovementSpeed.STEP_DELAY_MOUNT_RUN)
-                            {
-                                mounted = true;
-                            }
-                        }
-                        else
-                        {
-                            if (delay <= MovementSpeed.STEP_DELAY_MOUNT_WALK)
-                            {
-                                mounted = true;
-                            }
-                        }
+                        SetAnimation(0xFF);
                     }
 
+                    int delay = (int) Time.Ticks - (int) LastStepTime;
+                    bool mounted = IsMounted || SpeedMode == CharacterSpeedType.FastUnmount || SpeedMode == CharacterSpeedType.FastUnmountAndCantRun || IsFlying;
+                    bool run = step.Run;
+
+                    // Client auto movements sync. 
+                    // When server sends more than 1 packet in an amount of time less than 100ms if mounted (or 200ms if walking mount)
+                    // we need to remove the "teleport" effect.
+                    // When delay == 0 means that we received multiple movement packets in a single frame, so the patch becomes quite useless.
+                    if (!mounted && Serial != World.Player && Steps.Count > 1 && delay > 0)
+                    {
+                        mounted = delay <= (run ? MovementSpeed.STEP_DELAY_MOUNT_RUN : MovementSpeed.STEP_DELAY_MOUNT_WALK);
+                    }
 
                     int maxDelay = MovementSpeed.TimeToCompleteMovement(run, mounted) - (int) Client.Game.FrameDelay[1];
 
@@ -746,7 +819,9 @@ namespace ClassicUO.Game.GameObjects
                         }
 
                         if (badStep)
+                        {
                             removeStep = true;
+                        }
                         else
                         {
                             float steps = maxDelay / (float) Constants.CHARACTER_ANIMATION_DELAY;
@@ -775,7 +850,7 @@ namespace ClassicUO.Game.GameObjects
                             if (Z - step.Z >= 22)
                             {
                                 // oUCH!!!!
-                                AddMessage(MessageType.Label, "Ouch!");
+                                AddMessage(MessageType.Label, ResGeneral.Ouch, TextType.CLIENT);
                             }
 
                             if (World.Player.Walker.StepInfos[World.Player.Walker.CurrentWalkSequence].Accepted)
@@ -789,6 +864,7 @@ namespace ClassicUO.Game.GameObjects
                                     for (int i = 0; i < count; i++)
                                     {
                                         World.Player.Walker.StepInfos[sequence - 1] = World.Player.Walker.StepInfos[sequence];
+
                                         sequence++;
                                     }
                                 }
@@ -796,7 +872,9 @@ namespace ClassicUO.Game.GameObjects
                                 World.Player.Walker.StepsCount--;
                             }
                             else
+                            {
                                 World.Player.Walker.CurrentWalkSequence++;
+                            }
                         }
 
                         X = (ushort) step.X;
@@ -825,7 +903,9 @@ namespace ClassicUO.Game.GameObjects
                         }
 
                         if (TNext != null || TPrevious != null)
+                        {
                             AddToTile();
+                        }
 
                         LastStepTime = Time.Ticks;
                     }
@@ -835,258 +915,119 @@ namespace ClassicUO.Game.GameObjects
             }
         }
 
-        public int IsSitting()
+        public bool TryGetSittingInfo(out AnimationsLoader.SittingInfoData data)
         {
-            //get
+            ushort result = 0;
+
+            if (IsHuman && !IsMounted && !IsFlying && !TestStepNoChangeDirection(this, GetGroupForAnimation(this, isParent: true)))
             {
-                int result = 0;
+                GameObject start = this;
 
-                if (IsHuman && !IsMounted && !IsFlying && !TestStepNoChangeDirection(this, GetGroupForAnimation(this, isParent: true)))
+                while (start?.TPrevious != null)
                 {
-                    GameObject start = this;
-
-                    while (start?.TPrevious != null)
-                        start = start.TPrevious;
-
-                    while (start != null && result == 0)
-                    {
-                        if ((start is Item || start is Static || start is Multi) && Math.Abs(Z - start.Z) <= 1)
-                        {
-                            ushort graphic = start.Graphic;
-
-                            //if (start is Multi || start is Mobile)
-                            //    graphic = 0;
-
-                            switch (graphic)
-                            {
-                                case 0x0459:
-                                case 0x045A:
-                                case 0x045B:
-                                case 0x045C:
-                                case 0x0A2A:
-                                case 0x0A2B:
-                                case 0x0B2C:
-                                case 0x0B2D:
-                                case 0x0B2E:
-                                case 0x0B2F:
-                                case 0x0B30:
-                                case 0x0B31:
-                                case 0x0B32:
-                                case 0x0B33:
-                                case 0x0B4E:
-                                case 0x0B4F:
-                                case 0x0B50:
-                                case 0x0B51:
-                                case 0x0B52:
-                                case 0x0B53:
-                                case 0x0B54:
-                                case 0x0B55:
-                                case 0x0B56:
-                                case 0x0B57:
-                                case 0x0B58:
-                                case 0x0B59:
-                                case 0x0B5A:
-                                case 0x0B5B:
-                                case 0x0B5C:
-                                case 0x0B5D:
-                                case 0x0B5E:
-                                case 0x0B5F:
-                                case 0x0B60:
-                                case 0x0B61:
-                                case 0x0B62:
-                                case 0x0B63:
-                                case 0x0B64:
-                                case 0x0B65:
-                                case 0x0B66:
-                                case 0x0B67:
-                                case 0x0B68:
-                                case 0x0B69:
-                                case 0x0B6A:
-                                case 0x0B91:
-                                case 0x0B92:
-                                case 0x0B93:
-                                case 0x0B94:
-                                case 0x0CF3:
-                                case 0x0CF4:
-                                case 0x0CF6:
-                                case 0x0CF7:
-                                case 0x11FC:
-                                case 0x1218:
-                                case 0x1219:
-                                case 0x121A:
-                                case 0x121B:
-                                case 0x1527:
-                                case 0x1771:
-                                case 0x1776:
-                                case 0x1779:
-                                case 0x1DC7:
-                                case 0x1DC8:
-                                case 0x1DC9:
-                                case 0x1DCA:
-                                case 0x1DCB:
-                                case 0x1DCC:
-                                case 0x1DCD:
-                                case 0x1DCE:
-                                case 0x1DCF:
-                                case 0x1DD0:
-                                case 0x1DD1:
-                                case 0x1DD2:
-                                case 0x2A58:
-                                case 0x2A59:
-                                case 0x2A5A:
-                                case 0x2A5B:
-                                case 0x2A7F:
-                                case 0x2A80:
-                                case 0x2DDF:
-                                case 0x2DE0:
-                                case 0x2DE3:
-                                case 0x2DE4:
-                                case 0x2DE5:
-                                case 0x2DE6:
-                                case 0x2DEB:
-                                case 0x2DEC:
-                                case 0x2DED:
-                                case 0x2DEE:
-                                case 0x2DF5:
-                                case 0x2DF6:
-                                case 0x3088:
-                                case 0x3089:
-                                case 0x308A:
-                                case 0x308B:
-                                case 0x35ED:
-                                case 0x35EE:
-                                case 0x3DFF:
-                                case 0x3E00:
-                                case 0x4C8D:
-                                case 0x4C8E:
-                                case 0x4C8F:
-                                case 0x4C1E:
-                                case 0xA05F:
-                                case 0xA05E:
-                                case 0xA05D:
-                                case 0xA05C:
-                                case 0x9EA2:
-                                case 0x9EA1:
-                                case 0x9E9F:
-                                case 0x9EA0:
-                                case 0x9E91:
-                                case 0x9E90:
-                                case 0x9E8F:
-                                case 0x9E8E:
-                                case 0x9C62:
-                                case 0x9C61:
-                                case 0x9C60:
-                                case 0x9C5F:
-                                case 0x9C5E:
-                                case 0x9C5D:
-                                case 0x9C5A:
-                                case 0x9C59:
-                                case 0x9C58:
-                                case 0x9C57:
-                                case 0x402A:
-                                case 0x4029:
-                                case 0x4028:
-                                case 0x4027:
-                                case 0x4023:
-                                case 0x4024:
-                                case 0x4C1B:
-                                case 0x7132:
-                                case 0x71C2:
-                                case 0x9977:
-                                case 0x996C:
-                                //case 0x4C1F:
-
-                                    for (int i = 0; i < AnimationsLoader.Instance.SittingInfos.Length; i++)
-                                    {
-                                        if (AnimationsLoader.Instance.SittingInfos[i].Graphic == graphic)
-                                        {
-                                            result = i + 1;
-
-                                            break;
-                                        }
-                                    }
-
-                                    break;
-                            }
-                        }
-
-                        start = start.TNext;
-                    }
+                    start = start.TPrevious;
                 }
 
-                return result;
+                while (start != null && result == 0)
+                {
+                    if ((start is Item || start is Static || start is Multi) && Math.Abs(Z - start.Z) <= 1)
+                    {
+                        if (ChairTable.Table.TryGetValue(start.Graphic, out data))
+                        {
+                            return true;
+                        }
+                    }
+
+                    start = (GameObject) start.TNext;
+                }
             }
+
+            data = AnimationsLoader.SittingInfoData.Empty;
+            return false;
         }
 
         public override void UpdateTextCoordsV()
         {
             if (TextContainer == null)
+            {
                 return;
+            }
 
-            var last = (TextObject) TextContainer.Items;
+            TextObject last = (TextObject) TextContainer.Items;
 
             while (last?.Next != null)
+            {
                 last = (TextObject) last.Next;
+            }
 
             if (last == null)
+            {
                 return;
+            }
 
             int offY = 0;
 
-            bool health = ProfileManager.Current.ShowMobilesHP;
-            int alwaysHP = ProfileManager.Current.MobileHPShowWhen;
-            int mode = ProfileManager.Current.MobileHPType;
+            bool health = ProfileManager.CurrentProfile.ShowMobilesHP;
+            int alwaysHP = ProfileManager.CurrentProfile.MobileHPShowWhen;
+            int mode = ProfileManager.CurrentProfile.MobileHPType;
 
-            int startX = ProfileManager.Current.GameWindowPosition.X + 6;
-            int startY = ProfileManager.Current.GameWindowPosition.Y + 6;
-            var scene = Client.Game.GetScene<GameScene>();
-            float scale = scene?.Scale ?? 1;
+            Point p = RealScreenPosition;
 
-            int x = RealScreenPosition.X;
-            int y = RealScreenPosition.Y;
-
-
-            if (health && mode != 1 && ((alwaysHP >= 1 && Hits != HitsMax) || alwaysHP == 0))
-            {
-                y -= 22;
-            }
-
-            if (ObjectHandlesOpened)
-                y -= 22;
 
             if (IsGargoyle && IsFlying)
-                y -= 22;
+            {
+                p.Y -= 22;
+            }
             else if (!IsMounted)
-                y += 22;
+            {
+                p.Y += 22;
+            }
 
-            AnimationsLoader.Instance.GetAnimationDimensions(AnimIndex,
-                                                          GetGraphicForAnimation(),
-                                                          /*(byte) m.GetDirectionForAnimation()*/ 0,
-                                                          /*Mobile.GetGroupForAnimation(m, isParent:true)*/ 0,
-                                                          IsMounted,
-                                                          /*(byte) m.AnimIndex*/ 0,
-                                                          out _,
-                                                          out int centerY,
-                                                          out _,
-                                                          out int height);
-            x += (int)Offset.X + 22;
-            y += (int)(Offset.Y - Offset.Z - (height + centerY + 8));
-            x = (int) (x / scale);
-            y = (int) (y / scale);
+            AnimationsLoader.Instance.GetAnimationDimensions
+            (
+                AnimIndex,
+                GetGraphicForAnimation(),
+                /*(byte) m.GetDirectionForAnimation()*/
+                0,
+                /*Mobile.GetGroupForAnimation(m, isParent:true)*/
+                0,
+                IsMounted,
+                /*(byte) m.AnimIndex*/
+                0,
+                out _,
+                out int centerY,
+                out _,
+                out int height
+            );
+
+            p.X += (int) Offset.X + 22;
+            p.Y += (int) (Offset.Y - Offset.Z - (height + centerY + 8));
+            p = Client.Game.Scene.Camera.WorldToScreen(p);
+
+            if (ObjectHandlesOpened)
+            {
+                p.Y -= Constants.OBJECT_HANDLES_GUMP_HEIGHT;
+            }
+
+            if (health && HitsTexture != null && mode != 1 && (alwaysHP >= 1 && Hits != HitsMax || alwaysHP == 0))
+            {
+                p.Y -= HitsTexture.Height;
+            }
 
             for (; last != null; last = (TextObject) last.Previous)
             {
                 if (last.RenderedText != null && !last.RenderedText.IsDestroyed)
                 {
                     if (offY == 0 && last.Time < Time.Ticks)
+                    {
                         continue;
-
+                    }
 
                     last.OffsetY = offY;
                     offY += last.RenderedText.Height;
 
-                    last.RealScreenPosition.X = startX + (x - (last.RenderedText.Width >> 1));
-                    last.RealScreenPosition.Y = startY + (y - offY);
+                    last.RealScreenPosition.X = p.X - (last.RenderedText.Width >> 1);
+                    last.RealScreenPosition.Y = p.Y - offY;
                 }
             }
 
@@ -1102,41 +1043,50 @@ namespace ClassicUO.Game.GameObjects
                 {
                     IsFemale = false;
                     Race = RaceType.HUMAN;
+
                     break;
                 }
+
                 case 0x0191:
                 case 0x0193:
                 {
                     IsFemale = true;
                     Race = RaceType.HUMAN;
+
                     break;
                 }
+
                 case 0x025D:
                 {
                     IsFemale = false;
                     Race = RaceType.ELF;
+
                     break;
                 }
+
                 case 0x025E:
                 {
                     IsFemale = true;
                     Race = RaceType.ELF;
+
                     break;
                 }
+
                 case 0x029A:
                 {
                     IsFemale = false;
                     Race = RaceType.GARGOYLE;
+
                     break;
                 }
+
                 case 0x029B:
                 {
                     IsFemale = true;
                     Race = RaceType.GARGOYLE;
+
                     break;
                 }
-                default:
-                    break;
             }
         }
 
@@ -1145,12 +1095,13 @@ namespace ClassicUO.Game.GameObjects
             uint serial = Serial & 0x3FFFFFFF;
 
             ClearSteps();
-            
+
             base.Destroy();
 
             if (!(this is PlayerMobile))
             {
                 UIManager.GetGump<PaperDollGump>(serial)?.Dispose();
+
                 _pool.ReturnOne(this);
             }
         }

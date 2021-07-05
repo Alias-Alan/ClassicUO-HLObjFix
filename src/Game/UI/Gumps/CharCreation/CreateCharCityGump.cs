@@ -1,46 +1,58 @@
 ﻿#region license
-// Copyright (C) 2020 ClassicUO Development Community on Github
+
+// Copyright (c) 2021, andreakarasho
+// All rights reserved.
 // 
-// This project is an alternative client for the game Ultima Online.
-// The goal of this is to develop a lightweight client considering
-// new technologies.
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+// 1. Redistributions of source code must retain the above copyright
+//    notice, this list of conditions and the following disclaimer.
+// 2. Redistributions in binary form must reproduce the above copyright
+//    notice, this list of conditions and the following disclaimer in the
+//    documentation and/or other materials provided with the distribution.
+// 3. All advertising materials mentioning features or use of this software
+//    must display the following acknowledgement:
+//    This product includes software developed by andreakarasho - https://github.com/andreakarasho
+// 4. Neither the name of the copyright holder nor the
+//    names of its contributors may be used to endorse or promote products
+//    derived from this software without specific prior written permission.
 // 
-//  This program is free software: you can redistribute it and/or modify
-//  it under the terms of the GNU General Public License as published by
-//  the Free Software Foundation, either version 3 of the License, or
-//  (at your option) any later version.
-// 
-//  This program is distributed in the hope that it will be useful,
-//  but WITHOUT ANY WARRANTY; without even the implied warranty of
-//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//  GNU General Public License for more details.
-// 
-//  You should have received a copy of the GNU General Public License
-//  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ''AS IS'' AND ANY
+// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+// WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+// DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY
+// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+// (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+// LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+// ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
 #endregion
 
 using System.Collections.Generic;
-
-using ClassicUO.Configuration;
 using ClassicUO.Data;
 using ClassicUO.Game.Managers;
 using ClassicUO.Game.Scenes;
 using ClassicUO.Game.UI.Controls;
 using ClassicUO.IO.Resources;
 using ClassicUO.Renderer;
+using ClassicUO.Resources;
 using ClassicUO.Utility.Logging;
-
 using Microsoft.Xna.Framework;
+using MathHelper = ClassicUO.Utility.MathHelper;
 
 namespace ClassicUO.Game.UI.Gumps.CharCreation
 {
-    class CreateCharSelectionCityGump : Gump
+    internal class CreateCharSelectionCityGump : Gump
     {
-        private enum Buttons
-        {
-            PreviousScreen,
-            Finish,
-        }
+        private readonly List<CityControl> _cityControls = new List<CityControl>();
+        private readonly string[] _cityNames = { "Felucca", "Trammel", "Ilshenar", "Malas", "Tokuno", "Ter Mur" };
+        private readonly Label _facetName;
+        private readonly HtmlControl _htmlControl;
+        private readonly LoginScene _scene;
+        private CityInfo _selectedCity;
+        private readonly byte _selectedProfession;
 
         private readonly Point[] _townButtonsText =
         {
@@ -52,15 +64,8 @@ namespace ClassicUO.Game.UI.Gumps.CharCreation
             new Point(335, 250),
             new Point(160, 395),
             new Point(100, 250),
-            new Point(270, 130),
+            new Point(270, 130)
         };
-        private readonly string[] _cityNames = { "Felucca", "Trammel", "Ilshenar", "Malas", "Tokuno", "Ter Mur" };
-        private readonly Label _facetName;
-        private readonly HtmlControl _htmlControl;
-        private readonly LoginScene _scene;
-        private readonly byte _selectedProfession;
-        private CityInfo _selectedCity;
-        private readonly List<CityControl> _cityControls = new List<CityControl>();
 
         public CreateCharSelectionCityGump(byte profession, LoginScene scene) : base(0, 0)
         {
@@ -89,8 +94,9 @@ namespace ClassicUO.Game.UI.Gumps.CharCreation
 
             if (city == null)
             {
-                Log.Error("No city found. Something wrong with the received cities.");
+                Log.Error(ResGumps.NoCityFound);
                 Dispose();
+
                 return;
             }
 
@@ -101,7 +107,14 @@ namespace ClassicUO.Game.UI.Gumps.CharCreation
                 map = city.Map;
             }
 
-            _facetName = new Label("", true, 0x0481, font: 0, style: FontStyle.BlackBorder)
+            _facetName = new Label
+            (
+                "",
+                true,
+                0x0481,
+                font: 0,
+                style: FontStyle.BlackBorder
+            )
             {
                 X = 240,
                 Y = 440
@@ -121,38 +134,61 @@ namespace ClassicUO.Game.UI.Gumps.CharCreation
             }
 
             if (CUOEnviroment.IsOutlands)
+            {
                 _facetName.IsVisible = false;
+            }
 
             Add(_facetName);
 
 
-            Add(new Button((int) Buttons.PreviousScreen, 0x15A1, 0x15A3, 0x15A2)
-            {
-                X = 586,
-                Y = 445,
-                ButtonAction = ButtonAction.Activate
-            });
+            Add
+            (
+                new Button((int) Buttons.PreviousScreen, 0x15A1, 0x15A3, 0x15A2)
+                {
+                    X = 586,
+                    Y = 445,
+                    ButtonAction = ButtonAction.Activate
+                }
+            );
 
-            Add(new Button((int) Buttons.Finish, 0x15A4, 0x15A6, 0x15A5)
-            {
-                X = 610,
-                Y = 445,
-                ButtonAction = ButtonAction.Activate
-            });
+            Add
+            (
+                new Button((int) Buttons.Finish, 0x15A4, 0x15A6, 0x15A5)
+                {
+                    X = 610,
+                    Y = 445,
+                    ButtonAction = ButtonAction.Activate
+                }
+            );
 
 
-            _htmlControl = new HtmlControl(452, 60, 175, 367, true, true, ishtml: true, text: city.Description);
+            _htmlControl = new HtmlControl
+            (
+                452,
+                60,
+                175,
+                367,
+                true,
+                true,
+                ishtml: true,
+                text: city.Description
+            );
+
             Add(_htmlControl);
 
             if (CUOEnviroment.IsOutlands)
+            {
                 _htmlControl.IsVisible = false;
+            }
 
             for (int i = 0; i < scene.Cities.Length; i++)
             {
                 CityInfo c = scene.GetCity(i);
 
                 if (c == null)
+                {
                     continue;
+                }
 
                 int x = 0;
                 int y = 0;
@@ -162,14 +198,17 @@ namespace ClassicUO.Game.UI.Gumps.CharCreation
                     uint cityFacet = c.Map;
 
                     if (cityFacet > 5)
+                    {
                         cityFacet = 5;
+                    }
 
-                    x = 62 + Utility.MathHelper.PercetangeOf(MapLoader.Instance.MapsDefaultSize[cityFacet, 0] - 2048, c.X, 383);
-                    y = 54 + Utility.MathHelper.PercetangeOf(MapLoader.Instance.MapsDefaultSize[cityFacet, 1], c.Y, 384);
+                    x = 62 + MathHelper.PercetangeOf(MapLoader.Instance.MapsDefaultSize[cityFacet, 0] - 2048, c.X, 383);
+                    y = 54 + MathHelper.PercetangeOf(MapLoader.Instance.MapsDefaultSize[cityFacet, 1], c.Y, 384);
                 }
-                else if ( i < _townButtonsText.Length)
+                else if (i < _townButtonsText.Length)
                 {
                     x = _townButtonsText[i].X;
+
                     y = _townButtonsText[i].Y;
                 }
 
@@ -178,7 +217,9 @@ namespace ClassicUO.Game.UI.Gumps.CharCreation
                 _cityControls.Add(control);
 
                 if (CUOEnviroment.IsOutlands)
+                {
                     control.IsVisible = false;
+                }
             }
 
             SetCity(city);
@@ -193,7 +234,9 @@ namespace ClassicUO.Game.UI.Gumps.CharCreation
         private void SetCity(CityInfo city)
         {
             if (city == null)
+            {
                 return;
+            }
 
             _selectedCity = city;
             _htmlControl.Text = city.Description;
@@ -203,10 +246,14 @@ namespace ClassicUO.Game.UI.Gumps.CharCreation
         private void SetFacet(uint index)
         {
             if (Client.Version < ClientVersion.CV_70130)
+            {
                 return;
+            }
 
             if (index >= _cityNames.Length)
+            {
                 index = (uint) (_cityNames.Length - 1);
+            }
 
             _facetName.Text = _cityNames[index];
         }
@@ -214,19 +261,26 @@ namespace ClassicUO.Game.UI.Gumps.CharCreation
 
         public override void OnButtonClick(int buttonID)
         {
-            var charCreationGump = UIManager.GetGump<CharCreationGump>();
+            CharCreationGump charCreationGump = UIManager.GetGump<CharCreationGump>();
+
             if (charCreationGump == null)
+            {
                 return;
+            }
 
             switch ((Buttons) buttonID)
             {
                 case Buttons.PreviousScreen:
                     charCreationGump.StepBack(_selectedProfession > 0 ? 2 : 1);
+
                     return;
+
                 case Buttons.Finish:
-                    
+
                     if (_selectedCity != null)
+                    {
                         charCreationGump.SetCity(_selectedCity.Index);
+                    }
 
                     charCreationGump.CreateCharacter(_selectedProfession);
                     charCreationGump.IsVisible = false;
@@ -250,27 +304,44 @@ namespace ClassicUO.Game.UI.Gumps.CharCreation
             }
         }
 
+        private enum Buttons
+        {
+            PreviousScreen,
+            Finish
+        }
+
         private class CityControl : Control
         {
-            private readonly HoveredLabel _label;
             private readonly Button _button;
             private bool _isSelected;
+            private readonly HoveredLabel _label;
 
             public CityControl(CityInfo c, int x, int y, int index)
             {
                 CanMove = false;
 
 
-                Add(_button = new Button(2 + index, 0x04B9, 0x04BA, 0x04BA)
-                {
-                    ButtonAction = ButtonAction.Activate,
-                    X = x,
-                    Y = y
-                });
+                Add
+                (
+                    _button = new Button(2 + index, 0x04B9, 0x04BA, 0x04BA)
+                    {
+                        ButtonAction = ButtonAction.Activate,
+                        X = x,
+                        Y = y
+                    }
+                );
 
                 y -= 20;
 
-                _label = new HoveredLabel(c.City, false, 0x0058, 0x0099, 0x0481, font: 3)
+                _label = new HoveredLabel
+                (
+                    c.City,
+                    false,
+                    0x0058,
+                    0x0099,
+                    0x0481,
+                    font: 3
+                )
                 {
                     X = x,
                     Y = y,
@@ -288,6 +359,7 @@ namespace ClassicUO.Game.UI.Gumps.CharCreation
                     int idx = (int) _label.Tag;
                     OnButtonClick(idx + 2);
                 };
+
                 Add(_label);
             }
 
@@ -305,11 +377,11 @@ namespace ClassicUO.Game.UI.Gumps.CharCreation
                     }
                 }
             }
-            
 
-            public override void Update(double totalMS, double frameMS)
+
+            public override void Update(double totalTime, double frameTime)
             {
-                base.Update(totalMS, frameMS);
+                base.Update(totalTime, frameTime);
 
                 if (!_isSelected)
                 {
@@ -324,7 +396,9 @@ namespace ClassicUO.Game.UI.Gumps.CharCreation
                 _label.HitTest(x, y, ref c);
 
                 if (c != null)
+                {
                     return true;
+                }
 
                 _button.HitTest(x, y, ref c);
 

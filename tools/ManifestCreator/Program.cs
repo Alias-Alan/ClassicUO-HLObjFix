@@ -18,14 +18,14 @@ namespace ManifestCreator
             "ClassicUO",
             "ClassicUO.bin.osx",
             "ClassicUO.bin.x86_64",
-            "ClassicUO.exe.config",  
+            //"ClassicUO.exe.config",  
             //"ClassicUO.pdb",                    // to verify
             "cuoapi.dll",
             "FNA.dll",
             "FNA.dll.config",
             "monoconfig",
             "monomachineconfig",
-
+            "netstandard.dll",
 
             // Data
 
@@ -44,6 +44,9 @@ namespace ManifestCreator
             "osx/libFNA3D.0.dylib",
             "osx/libSDL2-2.0.0.dylib",
             "osx/libtheorafile.dylib",
+            "osx/libMoltenVK.dylib",
+            "osx/libvulkan.1.dylib",
+            "vulkan/icd.d/MoltenVK_icd.json",
 
             // windows
             "x64/FAudio.dll",
@@ -59,6 +62,7 @@ namespace ManifestCreator
             "Mono.Posix.dll",
             "Mono.Security.dll",
             "mscorlib.dll",
+            "MP3Sharp.dll",
             "System.Configuration.dll",
             "System.Core.dll",
             "System.Data.dll",
@@ -71,7 +75,14 @@ namespace ManifestCreator
             "System.Windows.Forms.dll",
             "System.Xml.dll",
             "System.Xml.Linq.dll",
-            "Newtonsoft.Json.dll"
+
+            "System.Buffers.dll",
+            "System.Memory.dll",
+            "System.Numerics.Vectors.dll",
+            "System.Runtime.CompilerServices.Unsafe.dll",
+
+            // removed.
+            //"Newtonsoft.Json.dll"
         };
 
 

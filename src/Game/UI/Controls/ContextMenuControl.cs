@@ -1,38 +1,46 @@
 ﻿#region license
-// Copyright (C) 2020 ClassicUO Development Community on Github
+
+// Copyright (c) 2021, andreakarasho
+// All rights reserved.
 // 
-// This project is an alternative client for the game Ultima Online.
-// The goal of this is to develop a lightweight client considering
-// new technologies.
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+// 1. Redistributions of source code must retain the above copyright
+//    notice, this list of conditions and the following disclaimer.
+// 2. Redistributions in binary form must reproduce the above copyright
+//    notice, this list of conditions and the following disclaimer in the
+//    documentation and/or other materials provided with the distribution.
+// 3. All advertising materials mentioning features or use of this software
+//    must display the following acknowledgement:
+//    This product includes software developed by andreakarasho - https://github.com/andreakarasho
+// 4. Neither the name of the copyright holder nor the
+//    names of its contributors may be used to endorse or promote products
+//    derived from this software without specific prior written permission.
 // 
-//  This program is free software: you can redistribute it and/or modify
-//  it under the terms of the GNU General Public License as published by
-//  the Free Software Foundation, either version 3 of the License, or
-//  (at your option) any later version.
-// 
-//  This program is distributed in the hope that it will be useful,
-//  but WITHOUT ANY WARRANTY; without even the implied warranty of
-//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//  GNU General Public License for more details.
-// 
-//  You should have received a copy of the GNU General Public License
-//  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ''AS IS'' AND ANY
+// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+// WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+// DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY
+// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+// (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+// LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+// ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
 #endregion
 
 using System;
 using System.Collections.Generic;
-using System.Runtime.InteropServices;
-
 using ClassicUO.Game.Managers;
+using ClassicUO.Game.UI.Gumps;
 using ClassicUO.Input;
-using ClassicUO.IO.Resources;
 using ClassicUO.Renderer;
-
 using Microsoft.Xna.Framework;
 
 namespace ClassicUO.Game.UI.Controls
 {
-    class ContextMenuControl
+    internal class ContextMenuControl
     {
         private readonly List<ContextMenuItemEntry> _items;
 
@@ -53,10 +61,13 @@ namespace ClassicUO.Game.UI.Controls
 
         public void Add(string text, List<ContextMenuItemEntry> entries)
         {
-            _items.Add(new ContextMenuItemEntry(text)
-            {
-                Items = entries
-            });
+            _items.Add
+            (
+                new ContextMenuItemEntry(text)
+                {
+                    Items = entries
+                }
+            );
         }
 
         public void Show()
@@ -64,7 +75,9 @@ namespace ClassicUO.Game.UI.Controls
             UIManager.ShowContextMenu(null);
 
             if (_items.Count == 0)
+            {
                 return;
+            }
 
             UIManager.ShowContextMenu
             (
@@ -83,7 +96,7 @@ namespace ClassicUO.Game.UI.Controls
         }
     }
 
-    sealed class ContextMenuItemEntry
+    internal sealed class ContextMenuItemEntry
     {
         public ContextMenuItemEntry(string text, Action action = null, bool canBeSelected = false, bool defaultValue = false)
         {
@@ -94,10 +107,10 @@ namespace ClassicUO.Game.UI.Controls
         }
 
         public readonly Action Action;
-        public readonly string Text;
         public readonly bool CanBeSelected;
         public bool IsSelected;
         public List<ContextMenuItemEntry> Items = new List<ContextMenuItemEntry>();
+        public readonly string Text;
 
         public void Add(ContextMenuItemEntry subEntry)
         {
@@ -106,24 +119,21 @@ namespace ClassicUO.Game.UI.Controls
     }
 
 
-
-
-    class ContextMenuShowMenu : Control
+    internal class ContextMenuShowMenu : Gump
     {
         private readonly AlphaBlendControl _background;
         private List<ContextMenuShowMenu> _subMenus;
 
 
-        public ContextMenuShowMenu(List<ContextMenuItemEntry> list)
+        public ContextMenuShowMenu(List<ContextMenuItemEntry> list) : base(0, 0)
         {
             WantUpdateSize = true;
-            ControlInfo.ModalClickOutsideAreaClosesThisControl = true;
-            ControlInfo.IsModal = true;
-            ControlInfo.Layer = UILayer.Over;
+            ModalClickOutsideAreaClosesThisControl = true;
+            IsModal = true;
+            LayerOrder = UILayer.Over;
 
             CanMove = false;
             AcceptMouseInput = true;
-
 
 
             _background = new AlphaBlendControl(0.3f);
@@ -133,7 +143,8 @@ namespace ClassicUO.Game.UI.Controls
 
             for (int i = 0; i < list.Count; i++)
             {
-                var item = new ContextMenuItem(this, list[i]);
+                ContextMenuItem item = new ContextMenuItem(this, list[i]);
+
                 if (i > 0)
                 {
                     item.Y = y;
@@ -152,54 +163,67 @@ namespace ClassicUO.Game.UI.Controls
             }
 
 
-            foreach (var mitem in FindControls<ContextMenuItem>())
+            foreach (ContextMenuItem mitem in FindControls<ContextMenuItem>())
             {
                 if (mitem.Width < _background.Width)
+                {
                     mitem.Width = _background.Width;
+                }
             }
         }
 
-        
 
-        public override void Update(double totalMS, double frameMS)
+        public override void Update(double totalTime, double frameTime)
         {
-            base.Update(totalMS, frameMS);
+            base.Update(totalTime, frameTime);
             WantUpdateSize = true;
         }
 
         public override bool Draw(UltimaBatcher2D batcher, int x, int y)
         {
             ResetHueVector();
-            batcher.DrawRectangle(Texture2DCache.GetTexture(Color.Gray), x - 1, y - 1, _background.Width + 1, _background.Height + 1, ref _hueVector);
+
+            batcher.DrawRectangle
+            (
+                SolidColorTextureCache.GetTexture(Color.Gray),
+                x - 1,
+                y - 1,
+                _background.Width + 1,
+                _background.Height + 1,
+                ref HueVector
+            );
+
             return base.Draw(batcher, x, y);
         }
 
         public override bool Contains(int x, int y)
         {
             if (_background.Bounds.Contains(x, y))
+            {
                 return true;
+            }
 
             if (_subMenus != null)
             {
                 foreach (ContextMenuShowMenu menu in _subMenus)
                 {
                     if (menu.Contains(x - menu.X, y - menu.Y))
+                    {
                         return true;
+                    }
                 }
             }
 
-            return  false;
+            return false;
         }
 
         private class ContextMenuItem : Control
         {
+            private static readonly RenderedText _moreMenuLabel = RenderedText.Create(">", 0xFFFF, isunicode: true, style: FontStyle.BlackBorder);
+            private readonly ContextMenuItemEntry _entry;
             private readonly Label _label;
             private readonly GumpPic _selectedPic;
-            private readonly ContextMenuItemEntry _entry;
             private readonly ContextMenuShowMenu _subMenu;
-
-
-            private static readonly RenderedText _moreMenuLabel = RenderedText.Create(">", 1150, isunicode: true, style: FontStyle.BlackBorder);
 
 
             public ContextMenuItem(ContextMenuShowMenu parent, ContextMenuItemEntry entry)
@@ -207,10 +231,18 @@ namespace ClassicUO.Game.UI.Controls
                 CanCloseWithRightClick = false;
                 _entry = entry;
 
-                _label = new Label(entry.Text, true, 1150, 0, style: FontStyle.BlackBorder)
+                _label = new Label
+                (
+                    entry.Text,
+                    true,
+                    0xFFFF,
+                    0,
+                    style: FontStyle.BlackBorder
+                )
                 {
-                    X = 25,
+                    X = 25
                 };
+
                 Add(_label);
 
 
@@ -221,6 +253,7 @@ namespace ClassicUO.Game.UI.Controls
                         IsVisible = entry.IsSelected,
                         IsEnabled = false
                     };
+
                     Add(_selectedPic);
                 }
 
@@ -238,15 +271,21 @@ namespace ClassicUO.Game.UI.Controls
                 Width = _label.X + _label.Width + 20;
 
                 if (Width < 100)
+                {
                     Width = 100;
+                }
 
                 // it is a bit tricky, but works :D 
                 if (_entry.Items != null && _entry.Items.Count != 0)
                 {
                     _subMenu = new ContextMenuShowMenu(_entry.Items);
                     parent.Add(_subMenu);
+
                     if (parent._subMenus == null)
+                    {
                         parent._subMenus = new List<ContextMenuShowMenu>();
+                    }
+
                     parent._subMenus.Add(_subMenu);
                 }
 
@@ -254,13 +293,14 @@ namespace ClassicUO.Game.UI.Controls
             }
 
 
-
-            public override void Update(double totalMS, double frameMS)
+            public override void Update(double totalTime, double frameTime)
             {
-                base.Update(totalMS, frameMS);
+                base.Update(totalTime, frameTime);
 
                 if (Width > _label.Width)
+                {
                     _label.Width = Width;
+                }
 
                 if (_subMenu != null)
                 {
@@ -273,7 +313,7 @@ namespace ClassicUO.Game.UI.Controls
                     }
                     else
                     {
-                        var p = UIManager.MouseOverControl?.Parent;
+                        Control p = UIManager.MouseOverControl?.Parent;
 
                         while (p != null)
                         {
@@ -281,14 +321,13 @@ namespace ClassicUO.Game.UI.Controls
                             {
                                 break;
                             }
+
                             p = p.Parent;
                         }
 
                         _subMenu.IsVisible = p != null;
                     }
-
                 }
-
             }
 
             protected override void OnMouseUp(int x, int y, MouseButtonType button)
@@ -317,7 +356,15 @@ namespace ClassicUO.Game.UI.Controls
                 {
                     ResetHueVector();
 
-                    batcher.Draw2D(Texture2DCache.GetTexture(Color.Gray), x + 2, y + 5, Width - 4, Height - 10, ref _hueVector);
+                    batcher.Draw2D
+                    (
+                        SolidColorTextureCache.GetTexture(Color.Gray),
+                        x + 2,
+                        y + 5,
+                        Width - 4,
+                        Height - 10,
+                        ref HueVector
+                    );
                 }
 
                 base.Draw(batcher, x, y);

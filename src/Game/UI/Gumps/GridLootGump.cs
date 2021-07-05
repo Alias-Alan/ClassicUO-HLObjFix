@@ -1,54 +1,66 @@
 ﻿#region license
-// Copyright (C) 2020 ClassicUO Development Community on Github
+
+// Copyright (c) 2021, andreakarasho
+// All rights reserved.
 // 
-// This project is an alternative client for the game Ultima Online.
-// The goal of this is to develop a lightweight client considering
-// new technologies.
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+// 1. Redistributions of source code must retain the above copyright
+//    notice, this list of conditions and the following disclaimer.
+// 2. Redistributions in binary form must reproduce the above copyright
+//    notice, this list of conditions and the following disclaimer in the
+//    documentation and/or other materials provided with the distribution.
+// 3. All advertising materials mentioning features or use of this software
+//    must display the following acknowledgement:
+//    This product includes software developed by andreakarasho - https://github.com/andreakarasho
+// 4. Neither the name of the copyright holder nor the
+//    names of its contributors may be used to endorse or promote products
+//    derived from this software without specific prior written permission.
 // 
-//  This program is free software: you can redistribute it and/or modify
-//  it under the terms of the GNU General Public License as published by
-//  the Free Software Foundation, either version 3 of the License, or
-//  (at your option) any later version.
-// 
-//  This program is distributed in the hope that it will be useful,
-//  but WITHOUT ANY WARRANTY; without even the implied warranty of
-//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//  GNU General Public License for more details.
-// 
-//  You should have received a copy of the GNU General Public License
-//  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ''AS IS'' AND ANY
+// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+// WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+// DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY
+// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+// (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+// LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+// ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
 #endregion
 
 using System.Linq;
-
 using ClassicUO.Configuration;
+// ## BEGIN - END ## // AUTOLOOT
+using ClassicUO.Dust765.Dust765;
+// ## BEGIN - END ## // AUTOLOOT
 using ClassicUO.Game.GameObjects;
 using ClassicUO.Game.Managers;
 using ClassicUO.Game.UI.Controls;
 using ClassicUO.Input;
 using ClassicUO.IO.Resources;
 using ClassicUO.Renderer;
-
+using ClassicUO.Resources;
 using Microsoft.Xna.Framework;
 
 namespace ClassicUO.Game.UI.Gumps
 {
     internal class GridLootGump : Gump
     {
-        private readonly AlphaBlendControl _background;
-        private readonly NiceButton _buttonPrev, _buttonNext;
-        private readonly Item _corpse;
-        private readonly Label _currentPageLabel;
-        private readonly bool _hideIfEmpty;
-
-        private int _currentPage = 1;
-        private int _pagesCount;
-
-        private static int _lastX = ProfileManager.Current.GridLootType == 2 ? 200 : 100;
-        private static int _lastY = 100;
-
         private const int MAX_WIDTH = 300;
         private const int MAX_HEIGHT = 400;
+
+        private static int _lastX = ProfileManager.CurrentProfile.GridLootType == 2 ? 200 : 100;
+        private static int _lastY = 100;
+        private readonly AlphaBlendControl _background;
+        private readonly NiceButton _buttonPrev, _buttonNext, _setlootbag;
+        private readonly Item _corpse;
+
+        private int _currentPage = 1;
+        private readonly Label _currentPageLabel;
+        private readonly bool _hideIfEmpty;
+        private int _pagesCount;
 
         public GridLootGump(uint local) : base(local, 0)
         {
@@ -62,9 +74,10 @@ namespace ClassicUO.Game.UI.Gumps
             }
 
             if (World.Player.ManualOpenedCorpses.Contains(LocalSerial))
+            {
                 World.Player.ManualOpenedCorpses.Remove(LocalSerial);
-            else if (World.Player.AutoOpenedCorpses.Contains(LocalSerial) &&
-                     ProfileManager.Current != null && ProfileManager.Current.SkipEmptyCorpse)
+            }
+            else if (World.Player.AutoOpenedCorpses.Contains(LocalSerial) && ProfileManager.CurrentProfile != null && ProfileManager.CurrentProfile.SkipEmptyCorpse)
             {
                 IsVisible = false;
                 _hideIfEmpty = true;
@@ -75,35 +88,84 @@ namespace ClassicUO.Game.UI.Gumps
 
             CanMove = true;
             AcceptMouseInput = true;
-            WantUpdateSize = false;
+            WantUpdateSize = true;
             CanCloseWithRightClick = true;
             _background = new AlphaBlendControl();
-            _background.Width = 300;
-            _background.Height = 400;
+            //_background.Width = MAX_WIDTH;
+            //_background.Height = MAX_HEIGHT;
+            // ## BEGIN - END ## // AUTOLOOT
+            if (ProfileManager.CurrentProfile.UOClassicCombatAL_EnableGridLootColoring)
+            {
+                if (_corpse.LootFlag != 0xFF && _corpse.LootFlag == ProfileManager.CurrentProfile.UOClassicCombatAL_SL_Gray) //grey
+                    _background.Hue = 0x0040; //green
+                if (_corpse.LootFlag != 0xFF && _corpse.LootFlag == ProfileManager.CurrentProfile.UOClassicCombatAL_SL_Red) //red
+                    _background.Hue = 0x0040; //green
+                if (_corpse.LootFlag != 0xFF && _corpse.LootFlag == ProfileManager.CurrentProfile.UOClassicCombatAL_SL_Green) //green
+                    _background.Hue = 0x0040; //green
+                if (_corpse.LootFlag != 0xFF && _corpse.LootFlag == ProfileManager.CurrentProfile.UOClassicCombatAL_SL_Blue) //blue
+                    _background.Hue = 0x0021; //red
+            }
+            //TRIGGER AL IF ENABLED
+            if (ProfileManager.CurrentProfile.UOClassicCombatAL)
+            {
+                UOClassicCombatAL UOClassicCombatAL = UIManager.GetGump<UOClassicCombatAL>();
+                UOClassicCombatAL?.OpenCorpseTrigger(_corpse.Serial);
+            }
+            // ## BEGIN - END ## // AUTOLOOT
             Add(_background);
 
             Width = _background.Width;
             Height = _background.Height;
 
-            NiceButton setLootBag = new NiceButton(3, Height - 23, 100, 20, ButtonAction.Activate, "Set loot bag") { ButtonParameter = 2, IsSelectable = false };
-            Add(setLootBag);
+            _setlootbag = new NiceButton
+            (
+                3,
+                Height - 23,
+                100,
+                20,
+                ButtonAction.Activate,
+                ResGumps.SetLootBag
+            ) { ButtonParameter = 2, IsSelectable = false };
 
-            _buttonPrev = new NiceButton(Width - 80, Height - 20, 40, 20, ButtonAction.Activate, "<<") {ButtonParameter = 0, IsSelectable = false};
-            _buttonNext = new NiceButton(Width - 40, Height - 20, 40, 20, ButtonAction.Activate, ">>") {ButtonParameter = 1, IsSelectable = false};
+            Add(_setlootbag);
+
+            _buttonPrev = new NiceButton
+            (
+                Width - 80,
+                Height - 20,
+                40,
+                20,
+                ButtonAction.Activate,
+                ResGumps.Prev
+            ) { ButtonParameter = 0, IsSelectable = false };
+
+            _buttonNext = new NiceButton
+            (
+                Width - 40,
+                Height - 20,
+                40,
+                20,
+                ButtonAction.Activate,
+                ResGumps.Next
+            ) { ButtonParameter = 1, IsSelectable = false };
 
             _buttonNext.IsVisible = _buttonPrev.IsVisible = false;
 
 
             Add(_buttonPrev);
             Add(_buttonNext);
-            Add(_currentPageLabel = new Label("1", true, 999, align: IO.Resources.TEXT_ALIGN_TYPE.TS_CENTER)
-            {
-                X = Width / 2 - 5,
-                Y = Height - 20,
-            });
+
+            Add
+            (
+                _currentPageLabel = new Label("1", true, 999, align: TEXT_ALIGN_TYPE.TS_CENTER)
+                {
+                    X = Width / 2 - 5,
+                    Y = Height - 20
+                }
+            );
         }
 
-      
+
         public override void OnButtonClick(int buttonID)
         {
             if (buttonID == 0)
@@ -115,6 +177,7 @@ namespace ClassicUO.Game.UI.Gumps
                     _currentPage = 1;
                     _buttonPrev.IsVisible = false;
                 }
+
                 _buttonNext.IsVisible = true;
                 ChangePage(_currentPage);
 
@@ -140,43 +203,66 @@ namespace ClassicUO.Game.UI.Gumps
             }
             else if (buttonID == 2)
             {
-                GameActions.Print("Target the container to Grab items into.");
+                GameActions.Print(ResGumps.TargetContainerToGrabItemsInto);
                 TargetManager.SetTargeting(CursorTarget.SetGrabBag, 0, TargetType.Neutral);
             }
             else
+            {
                 base.OnButtonClick(buttonID);
+            }
         }
-
 
 
         protected override void UpdateContents()
         {
+            // ## BEGIN - END ## // AUTOLOOT
+            //TRIGGER AL IF ENABLED
+            if (ProfileManager.CurrentProfile.UOClassicCombatAL)
+            {
+                UOClassicCombatAL UOClassicCombatAL = UIManager.GetGump<UOClassicCombatAL>();
+                UOClassicCombatAL?.UpdateCorpseTrigger(_corpse.Serial);
+            }
+            // ## BEGIN - END ## // AUTOLOOT
+
+            const int GRID_ITEM_SIZE = 50;
+
             int x = 20;
             int y = 20;
 
             foreach (GridLootItem gridLootItem in Children.OfType<GridLootItem>())
+            {
                 gridLootItem.Dispose();
+            }
 
             int count = 0;
             _pagesCount = 1;
 
-            for (var i = _corpse.Items; i != null; i = i.Next)
+            _background.Width = x;
+            _background.Height = y;
+
+            int line = 1;
+            int row = 0;
+
+            for (LinkedObject i = _corpse.Items; i != null; i = i.Next)
             {
                 Item it = (Item) i;
 
                 if (it.IsLootable)
                 {
-                    GridLootItem gridItem = new GridLootItem(it);
+                    GridLootItem gridItem = new GridLootItem(it, GRID_ITEM_SIZE);
 
-                    if (x >= _background.Width - 20)
+                    if (x >= MAX_WIDTH - 20)
                     {
                         x = 20;
+                        ++line;
+
                         y += gridItem.Height + 20;
 
-                        if (y >= _background.Height - 40)
+                        if (y >= MAX_HEIGHT - 40)
                         {
                             _pagesCount++;
                             y = 20;
+                            //line = 1;
                         }
                     }
 
@@ -185,10 +271,21 @@ namespace ClassicUO.Game.UI.Gumps
                     Add(gridItem, _pagesCount);
 
                     x += gridItem.Width + 20;
-
-                    count++;
+                    ++row;
+                    ++count;
                 }
             }
+
+            _background.Width = (GRID_ITEM_SIZE + 20) * row + 20;
+            _background.Height = 20 + 40 + (GRID_ITEM_SIZE + 20) * line + 20;
+
+
+            if (_background.Height >= MAX_HEIGHT - 40)
+            {
+                _background.Height = MAX_HEIGHT;
+            }
+
+            _background.Width = MAX_WIDTH;
 
             if (ActivePage <= 1)
             {
@@ -210,10 +307,10 @@ namespace ClassicUO.Game.UI.Gumps
 
             if (count == 0)
             {
-                GameActions.Print("[GridLoot]: Corpse is empty!");
+                GameActions.Print(ResGumps.CorpseIsEmpty);
                 Dispose();
             }
-            else if ((_hideIfEmpty && !IsVisible))
+            else if (_hideIfEmpty && !IsVisible)
             {
                 IsVisible = true;
             }
@@ -224,7 +321,9 @@ namespace ClassicUO.Game.UI.Gumps
             if (_corpse != null)
             {
                 if (_corpse == SelectedObject.CorpseObject)
+                {
                     SelectedObject.CorpseObject = null;
+                }
             }
 
             _lastX = X;
@@ -236,18 +335,29 @@ namespace ClassicUO.Game.UI.Gumps
         public override bool Draw(UltimaBatcher2D batcher, int x, int y)
         {
             if (!IsVisible || IsDisposed)
+            {
                 return false;
+            }
 
             ResetHueVector();
             base.Draw(batcher, x, y);
             ResetHueVector();
-            batcher.DrawRectangle(Texture2DCache.GetTexture(Color.Gray), x, y, Width, Height, ref _hueVector);
+
+            batcher.DrawRectangle
+            (
+                SolidColorTextureCache.GetTexture(Color.Gray),
+                x,
+                y,
+                Width,
+                Height,
+                ref HueVector
+            );
 
             return true;
         }
 
 
-        public override void Update(double totalMS, double frameMS)
+        public override void Update(double totalTime, double frameTime)
         {
             if (_corpse == null || _corpse.IsDestroyed || _corpse.OnGround && _corpse.Distance > 3)
             {
@@ -256,10 +366,36 @@ namespace ClassicUO.Game.UI.Gumps
                 return;
             }
 
-            base.Update(totalMS, frameMS);
+            base.Update(totalTime, frameTime);
 
             if (IsDisposed)
+            {
                 return;
+            }
+
+            if (_background.Width < 100)
+            {
+                _background.Width = 100;
+            }
+
+            if (_background.Height < 100)
+            {
+                _background.Height = 100;
+            }
+
+            Width = _background.Width;
+            Height = _background.Height;
+
+            _buttonPrev.X = Width - 80;
+            _buttonPrev.Y = Height - 23;
+            _buttonNext.X = Width - 40;
+            _buttonNext.Y = Height - 20;
+            _setlootbag.X = 3;
+            _setlootbag.Y = Height - 23;
+            _currentPageLabel.X = Width / 2 - 5;
+            _currentPageLabel.Y = Height - 20;
+
+            WantUpdateSize = true;
 
             if (_corpse != null && !_corpse.IsDestroyed && UIManager.MouseOverControl != null && (UIManager.MouseOverControl == this || UIManager.MouseOverControl.RootParent == this))
             {
@@ -271,7 +407,10 @@ namespace ClassicUO.Game.UI.Gumps
 
         protected override void OnMouseExit(int x, int y)
         {
-            if (_corpse != null && !_corpse.IsDestroyed) SelectedObject.CorpseObject = null;
+            if (_corpse != null && !_corpse.IsDestroyed)
+            {
+                SelectedObject.CorpseObject = null;
+            }
         }
 
 
@@ -279,7 +418,7 @@ namespace ClassicUO.Game.UI.Gumps
         {
             private readonly TextureControl _texture;
 
-            public GridLootItem(uint serial)
+            public GridLootItem(uint serial, int size)
             {
                 LocalSerial = serial;
 
@@ -292,11 +431,22 @@ namespace ClassicUO.Game.UI.Gumps
                     return;
                 }
 
-                const int SIZE = 50;
-
                 CanMove = false;
 
-                HSliderBar amount = new HSliderBar(0, 0, SIZE, 1, item.Amount, item.Amount, HSliderBarStyle.MetalWidgetRecessedBar, true, color: 0xFFFF, drawUp: true);
+                HSliderBar amount = new HSliderBar
+                (
+                    0,
+                    0,
+                    size,
+                    1,
+                    item.Amount,
+                    item.Amount,
+                    HSliderBarStyle.MetalWidgetRecessedBar,
+                    true,
+                    color: 0xFFFF,
+                    drawUp: true
+                );
+
                 Add(amount);
 
                 amount.IsVisible = amount.IsEnabled = amount.MaxValue > 1;
@@ -304,8 +454,8 @@ namespace ClassicUO.Game.UI.Gumps
 
                 AlphaBlendControl background = new AlphaBlendControl();
                 background.Y = 15;
-                background.Width = SIZE;
-                background.Height = SIZE;
+                background.Width = size;
+                background.Height = size;
                 Add(background);
 
 
@@ -315,11 +465,14 @@ namespace ClassicUO.Game.UI.Gumps
                 _texture.Hue = item.Hue;
                 _texture.Texture = ArtLoader.Instance.GetTexture(item.DisplayedGraphic);
                 _texture.Y = 15;
-                _texture.Width = SIZE;
-                _texture.Height = SIZE;
+                _texture.Width = size;
+                _texture.Height = size;
                 _texture.CanMove = false;
 
-                if (World.ClientFeatures.TooltipsEnabled) _texture.SetTooltip(item);
+                if (World.ClientFeatures.TooltipsEnabled)
+                {
+                    _texture.SetTooltip(item);
+                }
 
                 Add(_texture);
 
@@ -328,7 +481,7 @@ namespace ClassicUO.Game.UI.Gumps
                 {
                     if (e.Button == MouseButtonType.Left)
                     {
-                        GameActions.GrabItem(item, (ushort)amount.Value);
+                        GameActions.GrabItem(item, (ushort) amount.Value);
                     }
                 };
 
@@ -344,13 +497,31 @@ namespace ClassicUO.Game.UI.Gumps
                 base.Draw(batcher, x, y);
                 ResetHueVector();
 
-                batcher.DrawRectangle(Texture2DCache.GetTexture(Color.Gray), x, y + 15, Width, Height - 15, ref _hueVector);
+                batcher.DrawRectangle
+                (
+                    SolidColorTextureCache.GetTexture(Color.Gray),
+                    x,
+                    y + 15,
+                    Width,
+                    Height - 15,
+                    ref HueVector
+                );
 
                 if (_texture.MouseIsOver)
                 {
-                    _hueVector.Z = 0.7f;
-                    batcher.Draw2D(Texture2DCache.GetTexture(Color.Yellow), x + 1, y + 15, Width - 1, Height - 15, ref _hueVector);
-                    _hueVector.Z = 0;
+                    HueVector.Z = 0.7f;
+
+                    batcher.Draw2D
+                    (
+                        SolidColorTextureCache.GetTexture(Color.Yellow),
+                        x + 1,
+                        y + 15,
+                        Width - 1,
+                        Height - 15,
+                        ref HueVector
+                    );
+
+                    HueVector.Z = 0;
                 }
 
                 return true;

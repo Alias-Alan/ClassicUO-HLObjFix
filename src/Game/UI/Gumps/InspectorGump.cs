@@ -1,38 +1,45 @@
 ﻿#region license
-// Copyright (C) 2020 ClassicUO Development Community on Github
+
+// Copyright (c) 2021, andreakarasho
+// All rights reserved.
 // 
-// This project is an alternative client for the game Ultima Online.
-// The goal of this is to develop a lightweight client considering
-// new technologies.
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+// 1. Redistributions of source code must retain the above copyright
+//    notice, this list of conditions and the following disclaimer.
+// 2. Redistributions in binary form must reproduce the above copyright
+//    notice, this list of conditions and the following disclaimer in the
+//    documentation and/or other materials provided with the distribution.
+// 3. All advertising materials mentioning features or use of this software
+//    must display the following acknowledgement:
+//    This product includes software developed by andreakarasho - https://github.com/andreakarasho
+// 4. Neither the name of the copyright holder nor the
+//    names of its contributors may be used to endorse or promote products
+//    derived from this software without specific prior written permission.
 // 
-//  This program is free software: you can redistribute it and/or modify
-//  it under the terms of the GNU General Public License as published by
-//  the Free Software Foundation, either version 3 of the License, or
-//  (at your option) any later version.
-// 
-//  This program is distributed in the hope that it will be useful,
-//  but WITHOUT ANY WARRANTY; without even the implied warranty of
-//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//  GNU General Public License for more details.
-// 
-//  You should have received a copy of the GNU General Public License
-//  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ''AS IS'' AND ANY
+// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+// WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+// DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY
+// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+// (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+// LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+// ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
 #endregion
 
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using System.Text;
-
 using ClassicUO.Game.GameObjects;
 using ClassicUO.Game.UI.Controls;
 using ClassicUO.Renderer;
+using ClassicUO.Resources;
 using ClassicUO.Utility;
 using ClassicUO.Utility.Logging;
-
 using Microsoft.Xna.Framework;
-
 using SDL2;
 
 namespace ClassicUO.Game.UI.Gumps
@@ -41,8 +48,7 @@ namespace ClassicUO.Game.UI.Gumps
     {
         private const int WIDTH = 500;
         private const int HEIGHT = 400;
-        private readonly ScrollArea _scrollArea;
-        private GameObject _obj;
+        private readonly GameObject _obj;
 
         public InspectorGump(GameObject obj) : base(0, 0)
         {
@@ -52,62 +58,164 @@ namespace ClassicUO.Game.UI.Gumps
             CanMove = true;
             AcceptMouseInput = false;
             CanCloseWithRightClick = true;
-            Add(new BorderControl(0, 0, WIDTH, HEIGHT, 4));
 
-            Add(new GumpPicTiled(4, 4, WIDTH - 8, HEIGHT - 8, 0x0A40)
-            {
-                Alpha = 0.5f
-            });
+            Add
+            (
+                new BorderControl
+                (
+                    0,
+                    0,
+                    WIDTH,
+                    HEIGHT,
+                    4
+                )
+            );
 
-            Add(new GumpPicTiled(4, 4, WIDTH - 8, HEIGHT - 8, 0x0A40)
-            {
-                Alpha = 0.5f
-            });
-            Add(new Label("Object Information", true, 1153, font: 3) {X = 20, Y = 10});
-            Add(new Line(20, 30, WIDTH - 50, 1, 0xFFFFFFFF));
-            Add(new NiceButton(WIDTH - 115, 5, 100, 25, ButtonAction.Activate, "Dump")
-            {
-                ButtonParameter = 0
-            });
+            Add
+            (
+                new GumpPicTiled
+                (
+                    4,
+                    4,
+                    WIDTH - 8,
+                    HEIGHT - 8,
+                    0x0A40
+                )
+                {
+                    Alpha = 0.5f
+                }
+            );
 
-            _scrollArea = new ScrollArea(20, 35, WIDTH - 40, HEIGHT - 45, true)
+            Add
+            (
+                new GumpPicTiled
+                (
+                    4,
+                    4,
+                    WIDTH - 8,
+                    HEIGHT - 8,
+                    0x0A40
+                )
+                {
+                    Alpha = 0.5f
+                }
+            );
+
+            Add(new Label(ResGumps.ObjectInformation, true, 1153, font: 3) { X = 20, Y = 10 });
+
+            Add
+            (
+                new Line
+                (
+                    20,
+                    30,
+                    WIDTH - 50,
+                    1,
+                    0xFFFFFFFF
+                )
+            );
+
+            Add
+            (
+                new NiceButton
+                (
+                    WIDTH - 115,
+                    5,
+                    100,
+                    25,
+                    ButtonAction.Activate,
+                    ResGumps.Dump
+                )
+                {
+                    ButtonParameter = 0
+                }
+            );
+
+            ScrollArea scrollArea = new ScrollArea
+            (
+                20,
+                35,
+                WIDTH - 40,
+                HEIGHT - 45,
+                true
+            )
             {
                 AcceptMouseInput = true
             };
-            Add(_scrollArea);
+
+            Add(scrollArea);
+
+            DataBox databox = new DataBox(0, 0, 1, 1);
+            databox.WantUpdateSize = true;
+            scrollArea.Add(databox);
 
             Dictionary<string, string> dict = ReflectionHolder.GetGameObjectProperties(obj);
 
             if (dict != null)
             {
+                int startX = 5;
+                int startY = 5;
+
                 foreach (KeyValuePair<string, string> item in dict.OrderBy(s => s.Key))
                 {
-                    ScrollAreaItem areaItem = new ScrollAreaItem();
-
-                    Label label = new Label(item.Key + ":", true, 33, font: 1, style: FontStyle.BlackBorder)
+                    Label label = new Label
+                    (
+                        item.Key + ":",
+                        true,
+                        33,
+                        font: 1,
+                        style: FontStyle.BlackBorder
+                    )
                     {
-                        X = 2
+                        X = startX,
+                        Y = startY
                     };
-                    areaItem.Add(label);
+
+                    databox.Add(label);
 
                     int height = label.Height;
 
-                    label = new Label(item.Value, true, 1153, font: 1, style: FontStyle.BlackBorder, maxwidth: WIDTH - 65 - 200)
+                    label = new Label
+                    (
+                        item.Value,
+                        true,
+                        1153,
+                        font: 1,
+                        style: FontStyle.BlackBorder,
+                        maxwidth: WIDTH - 65 - 200
+                    )
                     {
-                        X = 200,
+                        X = startX + 200,
+                        Y = startY,
                         AcceptMouseInput = true
                     };
+
                     label.MouseUp += OnLabelClick;
 
                     if (label.Height > 0)
+                    {
                         height = label.Height;
+                    }
 
-                    areaItem.Add(label);
-                    areaItem.Add(new Line(0, height + 2, WIDTH - 65, 1, Color.Gray.PackedValue));
+                    databox.Add(label);
 
-                    _scrollArea.Add(areaItem);
+                    databox.Add
+                    (
+                        new Line
+                        (
+                            startX,
+                            startY + height + 2,
+                            WIDTH - 65,
+                            1,
+                            Color.Gray.PackedValue
+                        )
+                    );
+
+                    startY += height + 4;
                 }
             }
+
+            databox.ReArrangeChildren();
         }
 
         public override void OnButtonClick(int buttonID)
@@ -123,14 +231,15 @@ namespace ClassicUO.Game.UI.Gumps
                         writer.Write("###################################################");
                         writer.Write($"CUO version: {CUOEnviroment.Version}");
                         writer.Write($"OBJECT TYPE: {_obj.GetType()}");
+
                         foreach (KeyValuePair<string, string> item in dict.OrderBy(s => s.Key))
                         {
                             writer.Write($"{item.Key} = {item.Value}");
                         }
+
                         writer.Write("###################################################");
                         writer.Write("");
                     }
-
                 }
             }
         }

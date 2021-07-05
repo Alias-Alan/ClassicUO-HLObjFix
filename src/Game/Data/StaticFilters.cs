@@ -1,43 +1,58 @@
 ﻿#region license
-// Copyright (C) 2020 ClassicUO Development Community on Github
+
+// Copyright (c) 2021, andreakarasho
+// All rights reserved.
 // 
-// This project is an alternative client for the game Ultima Online.
-// The goal of this is to develop a lightweight client considering
-// new technologies.
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+// 1. Redistributions of source code must retain the above copyright
+//    notice, this list of conditions and the following disclaimer.
+// 2. Redistributions in binary form must reproduce the above copyright
+//    notice, this list of conditions and the following disclaimer in the
+//    documentation and/or other materials provided with the distribution.
+// 3. All advertising materials mentioning features or use of this software
+//    must display the following acknowledgement:
+//    This product includes software developed by andreakarasho - https://github.com/andreakarasho
+// 4. Neither the name of the copyright holder nor the
+//    names of its contributors may be used to endorse or promote products
+//    derived from this software without specific prior written permission.
 // 
-//  This program is free software: you can redistribute it and/or modify
-//  it under the terms of the GNU General Public License as published by
-//  the Free Software Foundation, either version 3 of the License, or
-//  (at your option) any later version.
-// 
-//  This program is distributed in the hope that it will be useful,
-//  but WITHOUT ANY WARRANTY; without even the implied warranty of
-//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//  GNU General Public License for more details.
-// 
-//  You should have received a copy of the GNU General Public License
-//  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ''AS IS'' AND ANY
+// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+// WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+// DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY
+// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+// (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+// LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+// ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
 #endregion
 
-using ClassicUO.Configuration;
-using ClassicUO.IO.Resources;
-using ClassicUO.Utility;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Runtime.CompilerServices;
+using ClassicUO.Configuration;
+using ClassicUO.IO.Resources;
+using ClassicUO.Renderer;
+using ClassicUO.Utility;
 
 namespace ClassicUO.Game.Data
 {
     [Flags]
-    enum STATIC_TILES_FILTER_FLAGS : byte
+    internal enum STATIC_TILES_FILTER_FLAGS : byte
     {
         STFF_CAVE = 0x01,
         STFF_STUMP = 0x02,
         STFF_STUMP_HATCHED = 0x04,
         STFF_VEGETATION = 0x08,
-        STFF_WATER = 0x10
-    };
+        STFF_WATER = 0x10,
+        // ## BEGIN - END ## // MISC2
+        STFF_IGNORECOT = 0x12
+        // ## BEGIN - END ## // MISC2
+    }
 
     internal static class StaticFilters
     {
@@ -45,18 +60,62 @@ namespace ClassicUO.Game.Data
 
         public static readonly List<ushort> CaveTiles = new List<ushort>();
         public static readonly List<ushort> TreeTiles = new List<ushort>();
+        // ## BEGIN - END ## // MISC2
+        public static readonly List<ushort> IgnoreCoT = new List<ushort>();
+        // ## BEGIN - END ## // MISC2
 
         public static void Load()
         {
             string path = Path.Combine(CUOEnviroment.ExecutablePath, "Data", "Client");
 
             if (!Directory.Exists(path))
+            {
                 Directory.CreateDirectory(path);
+            }
 
             string cave = Path.Combine(path, "cave.txt");
             string vegetation = Path.Combine(path, "vegetation.txt");
             string trees = Path.Combine(path, "tree.txt");
+            // ## BEGIN - END ## // MISC2
+            string ignoreCot = Path.Combine(path, "ignoreCoT.txt");
 
+            if (!File.Exists(ignoreCot))
+            {
+                using (StreamWriter writer = new StreamWriter(ignoreCot))
+                {
+                    ushort[] ignoreCoTTiles =
+                    {
+                        0x0CF8, 0x0CD1, 0x0CDB, 0x08E0, 0x08EA, 0x0C99, 0x0C9E, 0x0CA6, 0x0CC4, 0x0CC9, 0x0CCD,
+                        0x0CD0, 0x0CD3, 0x0CD6, 0x0CD8, 0x0CDA, 0x0CDD, 0x0CE0, 0x0CE3, 0x0CE6, 0x0CF8, 0x0CFB,
+                        0x0CFE, 0x0D01, 0x0D25, 0x0D35, 0x0D26, 0x0D37, 0x0D38, 0x0D42, 0x0D43, 0x0D59, 0x0D70,
+                        0x0D85, 0x0ED7, 0x0ED8, 0x1182, 0x12B8, 0x12BB, 0x134F, 0x136D, 0x1772, 0x1776, 0x177A,
+                        0x08E6, 0x08E5, 0x08E2, 0x08E1, 0x08E3, 0x08E4, 0x08E7, 0x08E8, 0x08E9
+                    };
+
+                    for (int i = 0; i < ignoreCoTTiles.Length; i++)
+                    {
+                        ushort g = ignoreCoTTiles[i];
+
+                        writer.WriteLine(g);
+                    }
+                }
+            }
+
+            TextFileParser ignoreCoTParser = new TextFileParser(File.ReadAllText(ignoreCot), new[] { ' ', '\t', ',' }, new[] { '#', ';' }, new[] { '"', '"' });
+
+            while (!ignoreCoTParser.IsEOF())
+            {
+                List<string> ss = ignoreCoTParser.ReadTokens();
+
+                if (ss != null && ss.Count != 0)
+                {
+                    if (ushort.TryParse(ss[0], out ushort graphic))
+                    {
+                        _filteredTiles[graphic] |= STATIC_TILES_FILTER_FLAGS.STFF_IGNORECOT;
+                    }
+                }
+            }
+            // ## BEGIN - END ## // MISC2
 
             if (!File.Exists(cave))
             {
@@ -76,8 +135,8 @@ namespace ClassicUO.Game.Data
             {
                 using (StreamWriter writer = new StreamWriter(vegetation))
                 {
-                    ushort[] vegetationTiles = 
-                        {
+                    ushort[] vegetationTiles =
+                    {
                         0x0D45, 0x0D46, 0x0D47, 0x0D48, 0x0D49, 0x0D4A, 0x0D4B, 0x0D4C, 0x0D4D, 0x0D4E, 0x0D4F,
                         0x0D50, 0x0D51, 0x0D52, 0x0D53, 0x0D54, 0x0D5C, 0x0D5D, 0x0D5E, 0x0D5F, 0x0D60, 0x0D61,
                         0x0D62, 0x0D63, 0x0D64, 0x0D65, 0x0D66, 0x0D67, 0x0D68, 0x0D69, 0x0D6D, 0x0D73, 0x0D74,
@@ -101,7 +160,7 @@ namespace ClassicUO.Game.Data
                     {
                         ushort g = vegetationTiles[i];
 
-                        if ((TileDataLoader.Instance.StaticData[g].IsImpassable))
+                        if (TileDataLoader.Instance.StaticData[g].IsImpassable)
                         {
                             continue;
                         }
@@ -116,12 +175,14 @@ namespace ClassicUO.Game.Data
                 using (StreamWriter writer = new StreamWriter(trees))
                 using (StreamWriter writerveg = new StreamWriter(vegetation, true))
                 {
-                    ushort[] treeTiles = {
-                        0x0CCA, 0x0CCB, 0x0CCC, 0x0CCD, 0x0CD0, 0x0CD3, 0x0CD6, 0x0CD8, 0x0CDA, 0x0CDD, 0x0CE0,
-                        0x0CE3, 0x0CE6, 0x0D41, 0x0D42, 0x0D43, 0x0D44, 0x0D57, 0x0D58, 0x0D59, 0x0D5A, 0x0D5B,
-                        0x0D6E, 0x0D6F, 0x0D70, 0x0D71, 0x0D72, 0x0D84, 0x0D85, 0x0D86, 0x0D94, 0x0D98, 0x0D9C,
-                        0x0DA0, 0x0DA4, 0x0DA8, 0x0C9E, 0x0CA8, 0x0CAA, 0x0CAB, 0x0CC9, 0x0CF8, 0x0CFB, 0x0CFE,
-                        0x0D01, 0x12B6, 0x12B7, 0x12B8, 0x12B9, 0x12BA, 0x12BB, 0x12BC, 0x12BD
+                    ushort[] treeTiles =
+                    {
+                        0x0C95, 0x0C96, 0x0C99, 0x0C9B, 0x0C9C, 0x0C9D, 0x0C9E, 0x0CA6, 0x0CA8, 0x0CAA, 0x0CAB,
+                        0x0CC9, 0x0CCA, 0x0CCB, 0x0CCC, 0x0CCD, 0x0CD0, 0x0CD3, 0x0CD6, 0x0CD8, 0x0CDA, 0x0CDD,
+                        0x0CE0, 0x0CE3, 0x0CE6, 0x0CF8, 0x0CFB, 0x0CFE, 0x0D01, 0x0D37, 0x0D38, 0x0D41, 0x0D42,
+                        0x0D43, 0x0D44, 0x0D57, 0x0D58, 0x0D59, 0x0D5A, 0x0D5B, 0x0D6E, 0x0D6F, 0x0D70, 0x0D71,
+                        0x0D72, 0x0D84, 0x0D85, 0x0D86, 0x0D94, 0x0D98, 0x0D9C, 0x0DA0, 0x0DA4, 0x0DA8, 0x12B6,
+                        0x12B7, 0x12B8, 0x12B9, 0x12BA, 0x12BB, 0x12BC, 0x12BD
                     };
 
                     for (int i = 0; i < treeTiles.Length; i++)
@@ -147,10 +208,11 @@ namespace ClassicUO.Game.Data
                             case 0x12BA:
                             case 0x12BB:
                                 flag = 0;
+
                                 break;
                         }
 
-                        if ((!TileDataLoader.Instance.StaticData[graphic].IsImpassable))
+                        if (!TileDataLoader.Instance.StaticData[graphic].IsImpassable)
                         {
                             writerveg.WriteLine(graphic);
                         }
@@ -164,10 +226,11 @@ namespace ClassicUO.Game.Data
 
 
             TextFileParser caveParser = new TextFileParser(File.ReadAllText(cave), new[] { ' ', '\t', ',' }, new[] { '#', ';' }, new[] { '"', '"' });
-            
+
             while (!caveParser.IsEOF())
             {
-                var ss = caveParser.ReadTokens();
+                List<string> ss = caveParser.ReadTokens();
+
                 if (ss != null && ss.Count != 0)
                 {
                     if (ushort.TryParse(ss[0], out ushort graphic))
@@ -183,7 +246,8 @@ namespace ClassicUO.Game.Data
 
             while (!stumpsParser.IsEOF())
             {
-                var ss = stumpsParser.ReadTokens();
+                List<string> ss = stumpsParser.ReadTokens();
+
                 if (ss != null && ss.Count >= 2)
                 {
                     STATIC_TILES_FILTER_FLAGS flag = STATIC_TILES_FILTER_FLAGS.STFF_STUMP;
@@ -203,10 +267,11 @@ namespace ClassicUO.Game.Data
 
 
             TextFileParser vegetationParser = new TextFileParser(File.ReadAllText(vegetation), new[] { ' ', '\t', ',' }, new[] { '#', ';' }, new[] { '"', '"' });
-            
+
             while (!vegetationParser.IsEOF())
             {
-                var ss = vegetationParser.ReadTokens();
+                List<string> ss = vegetationParser.ReadTokens();
+
                 if (ss != null && ss.Count != 0)
                 {
                     if (ushort.TryParse(ss[0], out ushort graphic))
@@ -221,9 +286,12 @@ namespace ClassicUO.Game.Data
         {
             foreach (ushort graphic in CaveTiles)
             {
-                var texture = ArtLoader.Instance.GetTexture(graphic);
+                ArtTexture texture = ArtLoader.Instance.GetTexture(graphic);
+
                 if (texture != null)
+                {
                     texture.Ticks = 0;
+                }
             }
 
             ArtLoader.Instance.CleaUnusedResources(short.MaxValue);
@@ -233,23 +301,20 @@ namespace ClassicUO.Game.Data
         {
             foreach (ushort graphic in TreeTiles)
             {
-                var texture = ArtLoader.Instance.GetTexture(graphic);
+                ArtTexture texture = ArtLoader.Instance.GetTexture(graphic);
+
                 if (texture != null)
+                {
                     texture.Ticks = 0;
+                }
             }
 
             ArtLoader.Instance.CleaUnusedResources(short.MaxValue);
         }
 
-        [MethodImpl(256)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsTree(ushort g, out int index)
         {
-            if (ProfileManager.Current != null && !ProfileManager.Current.TreeToStumps)
-            {
-                index = 0;
-                return false;
-            }
-
             STATIC_TILES_FILTER_FLAGS flag = _filteredTiles[g];
 
             if ((flag & STATIC_TILES_FILTER_FLAGS.STFF_STUMP) != 0)
@@ -267,22 +332,23 @@ namespace ClassicUO.Game.Data
             }
 
             index = 0;
+
             return false;
         }
 
-        [MethodImpl(256)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsVegetation(ushort g)
         {
             return (_filteredTiles[g] & STATIC_TILES_FILTER_FLAGS.STFF_VEGETATION) != 0;
         }
 
-        [MethodImpl(256)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsCave(ushort g)
         {
             return (_filteredTiles[g] & STATIC_TILES_FILTER_FLAGS.STFF_CAVE) != 0;
         }
 
-        [MethodImpl(256)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsRock(ushort g)
         {
             switch (g)
@@ -295,50 +361,53 @@ namespace ClassicUO.Game.Data
                 case 4958:
                 case 4959:
                 case 4960:
-                case 4962:
-                    return true;
-                default:
-                    return g >= 6001 && g <= 6012;
+                case 4962: return true;
+
+                default: return g >= 6001 && g <= 6012;
             }
         }
 
-        [MethodImpl(256)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsField(ushort g)
         {
-            return g >= 0x398C && g <= 0x399F ||
-                   g >= 0x3967 && g <= 0x397A ||
-                   g >= 0x3946 && g <= 0x3964 ||
-                   g >= 0x3914 && g <= 0x3929;
+            return g >= 0x398C && g <= 0x399F || g >= 0x3967 && g <= 0x397A || g >= 0x3946 && g <= 0x3964 || g >= 0x3914 && g <= 0x3929;
         }
 
-        [MethodImpl(256)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsFireField(ushort g)
         {
             return g >= 0x398C && g <= 0x399F;
         }
 
-        [MethodImpl(256)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsParalyzeField(ushort g)
         {
             return g >= 0x3967 && g <= 0x397A;
         }
 
-        [MethodImpl(256)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsEnergyField(ushort g)
         {
             return g >= 0x3946 && g <= 0x3964;
         }
 
-        [MethodImpl(256)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsPoisonField(ushort g)
         {
             return g >= 0x3914 && g <= 0x3929;
         }
 
-        [MethodImpl(256)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsWallOfStone(ushort g)
         {
             return g == 0x038A;
         }
+        // ## BEGIN - END ## // MISC2
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool IsIgnoreCoT(ushort g)
+        {
+            return (_filteredTiles[g] & STATIC_TILES_FILTER_FLAGS.STFF_IGNORECOT) != 0;
+        }
+        // ## BEGIN - END ## // MISC2
     }
 }

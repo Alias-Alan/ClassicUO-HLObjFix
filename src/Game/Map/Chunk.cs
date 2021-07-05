@@ -1,42 +1,67 @@
 ﻿#region license
-// Copyright (C) 2020 ClassicUO Development Community on Github
+
+// Copyright (c) 2021, andreakarasho
+// All rights reserved.
 // 
-// This project is an alternative client for the game Ultima Online.
-// The goal of this is to develop a lightweight client considering
-// new technologies.
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+// 1. Redistributions of source code must retain the above copyright
+//    notice, this list of conditions and the following disclaimer.
+// 2. Redistributions in binary form must reproduce the above copyright
+//    notice, this list of conditions and the following disclaimer in the
+//    documentation and/or other materials provided with the distribution.
+// 3. All advertising materials mentioning features or use of this software
+//    must display the following acknowledgement:
+//    This product includes software developed by andreakarasho - https://github.com/andreakarasho
+// 4. Neither the name of the copyright holder nor the
+//    names of its contributors may be used to endorse or promote products
+//    derived from this software without specific prior written permission.
 // 
-//  This program is free software: you can redistribute it and/or modify
-//  it under the terms of the GNU General Public License as published by
-//  the Free Software Foundation, either version 3 of the License, or
-//  (at your option) any later version.
-// 
-//  This program is distributed in the hope that it will be useful,
-//  but WITHOUT ANY WARRANTY; without even the implied warranty of
-//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//  GNU General Public License for more details.
-// 
-//  You should have received a copy of the GNU General Public License
-//  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ''AS IS'' AND ANY
+// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+// WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+// DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY
+// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+// (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+// LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+// ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
 #endregion
 
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
-
+// ## BEGIN - END ## // OUTLANDS
+//using ClassicUO.Dust765.Dust765;
+// ## BEGIN - END ## // OUTLANDS
 using ClassicUO.Game.GameObjects;
 using ClassicUO.Game.Managers;
 using ClassicUO.IO.Resources;
 using ClassicUO.Utility;
-using ClassicUO.Utility.Logging;
 
 namespace ClassicUO.Game.Map
 {
     internal sealed class Chunk
     {
-        private static readonly QueuedPool<Chunk> _pool = new QueuedPool<Chunk>(Constants.PREDICTABLE_CHUNKS, c =>
-        {
-            c.LastAccessTime = Time.Ticks + Constants.CLEAR_TEXTURES_DELAY;
-            c.IsDestroyed = false;
-        });
+        private static readonly QueuedPool<Chunk> _pool = new QueuedPool<Chunk>
+        (
+            Constants.PREDICTABLE_CHUNKS,
+            c =>
+            {
+                c.LastAccessTime = Time.Ticks + Constants.CLEAR_TEXTURES_DELAY;
+                c.IsDestroyed = false;
+            }
+        );
+
+        public GameObject[,] Tiles { get; } = new GameObject[8, 8];
+        public bool IsDestroyed;
+        public long LastAccessTime;
+        public LinkedListNode<int> Node;
+
+
+        public int X;
+        public int Y;
 
 
         public static Chunk Create(int x, int y)
@@ -49,21 +74,14 @@ namespace ClassicUO.Game.Map
         }
 
 
-        public int X;
-        public int Y;
-        public bool IsDestroyed;
-        public long LastAccessTime;
-
-        public GameObject[,] Tiles { get; } = new GameObject[8, 8];
-        public LinkedListNode<int> Node;
-
-
-        [MethodImpl(256)]
-        public unsafe void Load(int map)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe void Load(int index)
         {
             IsDestroyed = false;
 
-            ref IndexMap im = ref GetIndex(map);
+            Map map = World.Map;
+
+            ref IndexMap im = ref GetIndex(index);
 
             if (im.MapAddress != 0)
             {
@@ -72,28 +90,27 @@ namespace ClassicUO.Game.Map
                 int bx = X << 3;
                 int by = Y << 3;
 
-                for (int x = 0; x < 8; ++x)
+                for (int y = 0; y < 8; ++y)
                 {
-                    ushort tileX = (ushort) (bx + x);
+                    int pos = y << 3;
+                    ushort tileY = (ushort) (by + y);
 
-                    for (int y = 0; y < 8; ++y)
+                    for (int x = 0; x < 8; ++x, ++pos)
                     {
-                        int pos = (y << 3) + x;
                         ushort tileID = (ushort) (cells[pos].TileID & 0x3FFF);
+
                         sbyte z = cells[pos].Z;
 
                         Land land = Land.Create(tileID);
-                        land.AverageZ = z;
-                        land.MinZ = z;
 
-                        ushort tileY = (ushort) (by + y);
+                        ushort tileX = (ushort) (bx + x);
 
-                        land.ApplyStrech(tileX, tileY, z);
+                        land.ApplyStretch(map, tileX, tileY, z);
                         land.X = tileX;
                         land.Y = tileY;
                         land.Z = z;
                         land.UpdateScreenPosition();
-                            
+
                         AddGameObject(land, x, y);
                     }
                 }
@@ -104,31 +121,28 @@ namespace ClassicUO.Game.Map
 
                     if (sb != null)
                     {
-                        int count = (int) im.StaticCount;
-
-                        for (int i = 0; i < count; ++i, ++sb)
+                        for (int i = 0, count = (int) im.StaticCount; i < count; ++i, ++sb)
                         {
                             if (sb->Color != 0 && sb->Color != 0xFFFF)
                             {
-                                ushort x = sb->X;
-                                ushort y = sb->Y;
-                                int pos = (y << 3) + x;
+                                int pos = (sb->Y << 3) + sb->X;
 
                                 if (pos >= 64)
+                                {
                                     continue;
-
-                                sbyte z = sb->Z;
-
-                                ushort staticX = (ushort) (bx + x);
-                                ushort staticY = (ushort) (by + y);
+                                }
 
                                 Static staticObject = Static.Create(sb->Color, sb->Hue, pos);
-                                staticObject.X = staticX;
-                                staticObject.Y = staticY;
-                                staticObject.Z = z;
+                                staticObject.X = (ushort) (bx + sb->X);
+                                staticObject.Y = (ushort) (by + sb->Y);
+                                staticObject.Z = sb->Z;
+                                // ## BEGIN - END ## // OUTLANDS
+                                //if (CombatCollection.InfernoBridgeSolver(staticObject.X, staticObject.Y))
+                                //    staticObject.Hue = 0x44;
+                                // ## BEGIN - END ## // OUTLANDS
                                 staticObject.UpdateScreenPosition();
 
-                                AddGameObject(staticObject, x, y);
+                                AddGameObject(staticObject, sb->X, sb->Y);
                             }
                         }
                     }
@@ -147,10 +161,12 @@ namespace ClassicUO.Game.Map
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public GameObject GetHeadObject(int x, int y)
         {
-            var obj = Tiles[x, y];
+            GameObject obj = Tiles[x, y];
 
             while (obj?.TPrevious != null)
+            {
                 obj = obj.TPrevious;
+            }
 
             return obj;
         }
@@ -169,9 +185,15 @@ namespace ClassicUO.Game.Map
                 case Land tile:
 
                     if (tile.IsStretched)
+                    {
                         priorityZ = (short) (tile.AverageZ - 1);
+                    }
                     else
+                    {
                         priorityZ--;
+                    }
+
+                    priorityZ -= 1;
 
                     state = 0;
 
@@ -187,6 +209,7 @@ namespace ClassicUO.Game.Map
                     if (item.IsCorpse)
                     {
                         priorityZ++;
+
                         break;
                     }
                     else if (item.IsMulti)
@@ -208,6 +231,7 @@ namespace ClassicUO.Game.Map
                     if ((m.State & CUSTOM_HOUSE_MULTI_OBJECT_FLAGS.CHMOF_GENERIC_INTERNAL) != 0)
                     {
                         priorityZ--;
+
                         break;
                     }
 
@@ -216,9 +240,15 @@ namespace ClassicUO.Game.Map
                         state = 2;
                         priorityZ++;
                     }
+                    //else if ((m.ItemData.Flags & TileFlag.StairRight) != 0)
+                    //{
+                    //    priorityZ++;
+                    //}
 
-                    if (m.IsMovable)
-                        priorityZ++;
+                    //if (m.IsMovable)
+                    //{
+                    //    priorityZ += 1;
+                    //}
 
                     goto default;
 
@@ -226,13 +256,24 @@ namespace ClassicUO.Game.Map
                     ref StaticTiles data = ref TileDataLoader.Instance.StaticData[graphic];
 
                     if (data.IsBackground)
+                    {
                         priorityZ--;
+                    }
+
+                    //if (data.IsSurface)
+                    //{
+                    //    priorityZ--;
+                    //}
 
                     if (data.Height != 0)
+                    {
                         priorityZ++;
+                    }
 
                     if (data.IsMultiMovable)
+                    {
                         priorityZ++;
+                    }
 
                     break;
             }
@@ -254,15 +295,23 @@ namespace ClassicUO.Game.Map
             if (o == obj)
             {
                 if (o.Previous != null)
+                {
                     o = (GameObject) o.Previous;
+                }
                 else if (o.Next != null)
+                {
                     o = (GameObject) o.Next;
+                }
                 else
+                {
                     return;
+                }
             }
 
             while (o?.TPrevious != null)
+            {
                 o = o.TPrevious;
+            }
 
             GameObject found = null;
             GameObject start = o;
@@ -271,10 +320,10 @@ namespace ClassicUO.Game.Map
             {
                 int testPriorityZ = o.PriorityZ;
 
-                if (testPriorityZ > priorityZ ||
-                    (testPriorityZ == priorityZ &&
-                    (state == 0 || (state == 1 && !(o is Land)))))
+                if (testPriorityZ > priorityZ || testPriorityZ == priorityZ && (state == 0 || state == 1 && !(o is Land)))
+                {
                     break;
+                }
 
                 found = o;
                 o = o.TNext;
@@ -288,7 +337,9 @@ namespace ClassicUO.Game.Map
                 found.TNext = obj;
 
                 if (next != null)
+                {
                     next.TPrevious = obj;
+                }
             }
             else if (start != null)
             {
@@ -300,19 +351,27 @@ namespace ClassicUO.Game.Map
 
         public void RemoveGameObject(GameObject obj, int x, int y)
         {
-            ref var firstNode = ref Tiles[x, y];
+            ref GameObject firstNode = ref Tiles[x, y];
 
             if (firstNode == null || obj == null)
+            {
                 return;
+            }
 
             if (firstNode == obj)
+            {
                 firstNode = obj.TNext;
+            }
 
             if (obj.TNext != null)
+            {
                 obj.TNext.TPrevious = obj.TPrevious;
+            }
 
             if (obj.TPrevious != null)
+            {
                 obj.TPrevious.TNext = obj.TNext;
+            }
 
             obj.TPrevious = null;
             obj.TNext = null;
@@ -328,16 +387,20 @@ namespace ClassicUO.Game.Map
                     GameObject obj = Tiles[i, j];
 
                     if (obj == null)
+                    {
                         continue;
+                    }
 
-                    var first = GetHeadObject(i, j);
+                    GameObject first = GetHeadObject(i, j);
 
                     while (first != null)
                     {
-                        var next = first.TNext;
+                        GameObject next = first.TNext;
 
-                        if (first != World.Player)
+                        if (!ReferenceEquals(first, World.Player))
+                        {
                             first.Destroy();
+                        }
 
                         first.TPrevious = null;
                         first.TNext = null;
@@ -349,7 +412,10 @@ namespace ClassicUO.Game.Map
             }
 
             if (Node.Next != null || Node.Previous != null)
+            {
                 Node.List?.Remove(Node);
+            }
+
             IsDestroyed = true;
             _pool.ReturnOne(this);
         }
@@ -363,16 +429,20 @@ namespace ClassicUO.Game.Map
                     GameObject obj = Tiles[i, j];
 
                     if (obj == null)
+                    {
                         continue;
+                    }
 
-                    var first = GetHeadObject(i, j);
+                    GameObject first = GetHeadObject(i, j);
 
                     while (first != null)
                     {
-                        var next = first.TNext;
+                        GameObject next = first.TNext;
 
-                        if (first != World.Player)
+                        if (!ReferenceEquals(first, World.Player))
+                        {
                             first.Destroy();
+                        }
 
                         first.TPrevious = null;
                         first.TNext = null;
@@ -384,7 +454,10 @@ namespace ClassicUO.Game.Map
             }
 
             if (Node.Next != null || Node.Previous != null)
+            {
                 Node.List?.Remove(Node);
+            }
+
             IsDestroyed = true;
         }
 
@@ -394,10 +467,12 @@ namespace ClassicUO.Game.Map
             {
                 for (int j = 0; j < 8; j++)
                 {
-                    for (var obj = GetHeadObject(i, j); obj != null; obj = obj.TNext)
+                    for (GameObject obj = GetHeadObject(i, j); obj != null; obj = obj.TNext)
                     {
                         if (!(obj is Land) && !(obj is Static) /*&& !(obj is Multi)*/)
+                        {
                             return false;
+                        }
                     }
                 }
             }

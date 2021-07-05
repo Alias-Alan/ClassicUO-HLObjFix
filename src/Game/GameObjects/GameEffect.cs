@@ -1,120 +1,133 @@
 ﻿#region license
-// Copyright (C) 2020 ClassicUO Development Community on Github
+
+// Copyright (c) 2021, andreakarasho
+// All rights reserved.
 // 
-// This project is an alternative client for the game Ultima Online.
-// The goal of this is to develop a lightweight client considering
-// new technologies.
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+// 1. Redistributions of source code must retain the above copyright
+//    notice, this list of conditions and the following disclaimer.
+// 2. Redistributions in binary form must reproduce the above copyright
+//    notice, this list of conditions and the following disclaimer in the
+//    documentation and/or other materials provided with the distribution.
+// 3. All advertising materials mentioning features or use of this software
+//    must display the following acknowledgement:
+//    This product includes software developed by andreakarasho - https://github.com/andreakarasho
+// 4. Neither the name of the copyright holder nor the
+//    names of its contributors may be used to endorse or promote products
+//    derived from this software without specific prior written permission.
 // 
-//  This program is free software: you can redistribute it and/or modify
-//  it under the terms of the GNU General Public License as published by
-//  the Free Software Foundation, either version 3 of the License, or
-//  (at your option) any later version.
-// 
-//  This program is distributed in the hope that it will be useful,
-//  but WITHOUT ANY WARRANTY; without even the implied warranty of
-//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//  GNU General Public License for more details.
-// 
-//  You should have received a copy of the GNU General Public License
-//  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ''AS IS'' AND ANY
+// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+// WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+// DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY
+// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+// (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+// LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+// ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
 #endregion
 
+using System;
 using System.Collections.Generic;
-
 using ClassicUO.Game.Data;
+using ClassicUO.Game.Managers;
 using ClassicUO.IO.Resources;
+using ClassicUO.Utility;
 
 namespace ClassicUO.Game.GameObjects
 {
-    internal abstract class GameEffect : GameObject
+    internal abstract partial class GameEffect : GameObject
     {
-        public AnimDataFrame2 AnimDataFrame;
+        private readonly EffectManager _manager;
 
-        protected GameEffect()
+        protected GameEffect(EffectManager manager, ushort graphic, ushort hue, int duration, byte speed)
         {
-            Children = new List<GameEffect>();
+            _manager = manager;
+
+            Graphic = graphic;
+            Hue = hue;
+            AllowedToDraw = !GameObjectHelper.IsNoDrawable(graphic);
             AlphaHue = 0xFF;
-        }
-
-        public List<GameEffect> Children { get; }
-
-        public GameObject Source;
-
-        protected GameObject Target;
-
-        protected int TargetX;
-
-        protected int TargetY;
-
-        protected int TargetZ;
-
-        public int IntervalInMs;
-
-        public long NextChangeFrameTime;
-
-        public bool IsEnabled;
-
-        public ushort AnimationGraphic = 0xFFFF;
-
-        public bool IsMoving => Target != null || TargetX != 0 && TargetY != 0;
-
-        public GraphicEffectBlendMode Blend;
-
-        public long Duration = -1;
-        public byte AnimIndex;
-
-        public void Load()
-        {
-            AnimDataFrame = AnimDataLoader.Instance.CalculateCurrentGraphic(Graphic);
+            AnimDataFrame = AnimDataLoader.Instance?.CalculateCurrentGraphic(graphic) ?? default;
             IsEnabled = true;
             AnimIndex = 0;
+            
+
+            speed *= 10;
+
+            if (speed == 0)
+            {
+                speed = Constants.ITEM_EFFECT_ANIMATION_DELAY;
+            }
 
             if (AnimDataFrame.FrameInterval == 0)
             {
-                IntervalInMs = Constants.ITEM_EFFECT_ANIMATION_DELAY;
+                IntervalInMs = speed;
+
+                // NOTE:
+                // tested on outlands with arrows & bolts 
+                // server sends duration = 50 , a very small amount of time so the arrow will be destroyed suddenly
+                // im not sure if this is the right fix, but keep it atm
+                
+                // NOTE 2:
+                // this fix causes issue with other effects. It makes perma effects. So bad
+                //duration = -1;
             }
             else
             {
-                IntervalInMs = AnimDataFrame.FrameInterval * Constants.ITEM_EFFECT_ANIMATION_DELAY;
+                IntervalInMs = (uint)(AnimDataFrame.FrameInterval * speed);
             }
+
+            Duration = duration > 0 ? Time.Ticks + duration : -1;
         }
 
-        public override void Update(double totalMS, double frameMS)
+        public bool IsMoving => Target != null || TargetX != 0 && TargetY != 0;
+
+        public bool CanCreateExplosionEffect;
+        public ushort AnimationGraphic = 0xFFFF;
+        public AnimDataFrame AnimDataFrame;
+        public byte AnimIndex;
+        public float AngleToTarget;
+        public GraphicEffectBlendMode Blend;
+        public long Duration = -1;
+        public uint IntervalInMs;
+        public bool IsEnabled;
+        public long NextChangeFrameTime;
+        public GameObject Source;
+        protected GameObject Target;
+        protected int TargetX;
+        protected int TargetY;
+        protected int TargetZ;
+
+      
+        public override void Update(double totalTime, double frameTime)
         {
-            base.Update(totalMS, frameMS);
+            base.Update(totalTime, frameTime);
 
 
             if (Source != null && Source.IsDestroyed)
             {
-                World.RemoveEffect(this);
+                Destroy();
 
                 return;
             }
 
             if (IsDestroyed)
+            {
                 return;
+            }
 
             if (IsEnabled)
             {
-                if (Duration < totalMS && Duration >= 0)
-                    World.RemoveEffect(this);
-                //else
-                //{
-                //    unsafe
-                //    {
-                //        int count = AnimDataFrame.FrameCount;
-                //        if (count == 0)
-                //            count = 1;
-
-                //        AnimationGraphic = (Graphic) (Graphic + AnimDataFrame.FrameData[((int) Math.Max(1, (_start / 50d) / Speed)) % count]);
-                //    }
-
-                //    _start += frameMS;
-                //}
-
-                else if (NextChangeFrameTime < totalMS)
+                if (Duration < totalTime && Duration >= 0)
                 {
-
+                    Destroy();
+                }
+                else if (NextChangeFrameTime < totalTime)
+                {
                     if (AnimDataFrame.FrameCount != 0)
                     {
                         unsafe
@@ -125,29 +138,41 @@ namespace ClassicUO.Game.GameObjects
                         AnimIndex++;
 
                         if (AnimIndex >= AnimDataFrame.FrameCount)
+                        {
                             AnimIndex = 0;
+                        }
                     }
                     else
                     {
-                        if (Graphic != AnimationGraphic)
-                            AnimationGraphic = Graphic;
+                        AnimationGraphic = Graphic;
                     }
 
-                    NextChangeFrameTime = (long) totalMS + IntervalInMs;
+                    NextChangeFrameTime = (long) totalTime + IntervalInMs;
                 }
             }
-            else if (Graphic != AnimationGraphic)
+            else
+            {
                 AnimationGraphic = Graphic;
-        }
-
-        public void AddChildEffect(GameEffect effect)
-        {
-            Children.Add(effect);
+            }
         }
 
         protected (int x, int y, int z) GetSource()
         {
             return Source == null ? (X, Y, Z) : (Source.X, Source.Y, Source.Z);
+        }
+
+        protected void CreateExplosionEffect()
+        {
+            if (CanCreateExplosionEffect)
+            {
+                (int targetX, int targetY, int targetZ) = GetTarget();
+
+                FixedEffect effect = new FixedEffect(_manager, 0x36CB, Hue, 400, 0);
+                effect.Blend = Blend;
+                effect.SetSource(targetX, targetY, targetZ);
+
+                _manager.PushToBack(effect);
+            }
         }
 
         public void SetSource(GameObject source)
@@ -190,6 +215,8 @@ namespace ClassicUO.Game.GameObjects
 
         public override void Destroy()
         {
+            _manager?.Remove(this);
+
             AnimIndex = 0;
             Source = null;
             Target = null;

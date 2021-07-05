@@ -1,26 +1,36 @@
 ﻿#region license
-// Copyright (C) 2020 ClassicUO Development Community on Github
+
+// Copyright (c) 2021, andreakarasho
+// All rights reserved.
 // 
-// This project is an alternative client for the game Ultima Online.
-// The goal of this is to develop a lightweight client considering
-// new technologies.
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+// 1. Redistributions of source code must retain the above copyright
+//    notice, this list of conditions and the following disclaimer.
+// 2. Redistributions in binary form must reproduce the above copyright
+//    notice, this list of conditions and the following disclaimer in the
+//    documentation and/or other materials provided with the distribution.
+// 3. All advertising materials mentioning features or use of this software
+//    must display the following acknowledgement:
+//    This product includes software developed by andreakarasho - https://github.com/andreakarasho
+// 4. Neither the name of the copyright holder nor the
+//    names of its contributors may be used to endorse or promote products
+//    derived from this software without specific prior written permission.
 // 
-//  This program is free software: you can redistribute it and/or modify
-//  it under the terms of the GNU General Public License as published by
-//  the Free Software Foundation, either version 3 of the License, or
-//  (at your option) any later version.
-// 
-//  This program is distributed in the hope that it will be useful,
-//  but WITHOUT ANY WARRANTY; without even the implied warranty of
-//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//  GNU General Public License for more details.
-// 
-//  You should have received a copy of the GNU General Public License
-//  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ''AS IS'' AND ANY
+// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+// WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+// DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY
+// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+// (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+// LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+// ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
 #endregion
 
-using System.Collections.Generic;
-
+using System;
 using ClassicUO.Game.Data;
 using ClassicUO.Game.GameObjects;
 using ClassicUO.Interfaces;
@@ -28,54 +38,58 @@ using ClassicUO.Utility.Logging;
 
 namespace ClassicUO.Game.Managers
 {
-    internal class EffectManager : IUpdateable
+    internal class EffectManager : LinkedObject, IUpdateable
     {
-        private GameEffect _root;
-
-        public void Update(double totalMS, double frameMS)
+        public void Update(double totalTime, double frameTime)
         {
-            var f = _root;
-
-            while (f != null)
+            for (GameEffect f = (GameEffect) Items; f != null;)
             {
-                var n = f.Next;
+                GameEffect next = (GameEffect) f.Next;
 
-                f.Update(totalMS, frameMS);
+                f.Update(totalTime, frameTime);
 
                 if (!f.IsDestroyed && f.Distance > World.ClientViewRange)
-                    RemoveEffect(f);
-
-                if (f.IsDestroyed)
                 {
-                    if (f.Children.Count != 0)
-                    {
-                        foreach (GameEffect child in f.Children)
-                        {
-                            if (!child.IsDestroyed)
-                                Add(child);
-                        }
-
-                        f.Children.Clear();
-                    }
+                    f.Destroy();
                 }
 
-                f = (GameEffect) n;
+                f = next;
             }
         }
 
-        public void Add(GraphicEffectType type, 
-                        uint source, uint target, 
-                        ushort graphic, 
-                        ushort hue, 
-                        ushort srcX, ushort srcY, sbyte srcZ,
-                        ushort targetX, ushort targetY, sbyte targetZ,
-                        byte speed, int duration, bool fixedDir, bool doesExplode, bool hasparticles, GraphicEffectBlendMode blendmode)
+
+        public void CreateEffect
+        (
+            GraphicEffectType type,
+            uint source,
+            uint target,
+            ushort graphic,
+            ushort hue,
+            ushort srcX,
+            ushort srcY,
+            sbyte srcZ,
+            ushort targetX,
+            ushort targetY,
+            sbyte targetZ,
+            byte speed,
+            int duration,
+            bool fixedDir,
+            bool doesExplode,
+            bool hasparticles,
+            GraphicEffectBlendMode blendmode
+        )
         {
-            if (hasparticles) Log.Warn( "Unhandled particles in an effects packet.");
-            GameEffect effect = null;
+            if (hasparticles)
+            {
+                Log.Warn("Unhandled particles in an effects packet.");
+            }
+
+            GameEffect effect;
 
             if (hue != 0)
+            {
                 hue++;
+            }
 
             duration *= Constants.ITEM_EFFECT_ANIMATION_DELAY;
 
@@ -83,32 +97,106 @@ namespace ClassicUO.Game.Managers
             {
                 case GraphicEffectType.Moving:
                     if (graphic <= 0)
+                    {
                         return;
+                    }
 
+                    // TODO: speed == 0 means run at standard frameInterval got from anim.mul?
                     if (speed == 0)
+                    {
                         speed++;
-                    
-                    effect = new MovingEffect(source, target, srcX, srcY, srcZ, targetX, targetY, targetZ, graphic, hue, fixedDir, speed)
+                    }
+
+                    effect = new MovingEffect
+                    (
+                        this,
+                        source,
+                        target,
+                        srcX,
+                        srcY,
+                        srcZ,
+                        targetX,
+                        targetY,
+                        targetZ,
+                        graphic,
+                        hue,
+                        fixedDir,
+                        duration,
+                        speed
+                    )
                     {
                         Blend = blendmode,
+                        CanCreateExplosionEffect = doesExplode
                     };
 
-                    if (doesExplode)
-                        effect.AddChildEffect(new AnimatedItemEffect(target, targetX, targetY, targetZ, 0x36Cb, hue, 9, speed));
+                    break;
+
+                case GraphicEffectType.DragEffect:
+
+                    if (graphic <= 0)
+                    {
+                        return;
+                    }
+
+                    if (speed == 0)
+                    {
+                        speed++;
+                    }
+
+                    effect = new DragEffect
+                    (
+                        this,
+                        source,
+                        target,
+                        srcX,
+                        srcY,
+                        srcZ,
+                        targetX,
+                        targetY,
+                        targetZ,
+                        graphic,
+                        hue,
+                        duration,
+                        speed
+                    )
+                    {
+                        Blend = blendmode,
+                        CanCreateExplosionEffect = doesExplode
+                    };
 
                     break;
 
                 case GraphicEffectType.Lightning:
-                    effect = new LightningEffect(source, srcX, srcY, srcZ, hue);
+                    effect = new LightningEffect
+                    (
+                        this,
+                        source,
+                        srcX,
+                        srcY,
+                        srcZ,
+                        hue
+                    );
 
                     break;
 
                 case GraphicEffectType.FixedXYZ:
 
                     if (graphic <= 0)
+                    {
                         return;
+                    }
 
-                    effect = new AnimatedItemEffect(srcX, srcY, srcZ, graphic, hue, duration, speed)
+                    effect = new FixedEffect
+                    (
+                        this,
+                        srcX,
+                        srcY,
+                        srcZ,
+                        graphic,
+                        hue,
+                        duration,
+                        0 //speed [use 50ms]
+                    )
                     {
                         Blend = blendmode
                     };
@@ -118,97 +206,57 @@ namespace ClassicUO.Game.Managers
                 case GraphicEffectType.FixedFrom:
 
                     if (graphic <= 0)
-                        return;
-
-                    effect = new AnimatedItemEffect(source, srcX, srcY, srcZ, graphic, hue, duration, speed)
                     {
-                        Blend = blendmode,
+                        return;
+                    }
+
+                    effect = new FixedEffect
+                    (
+                        this,
+                        source,
+                        srcX,
+                        srcY,
+                        srcZ,
+                        graphic,
+                        hue,
+                        duration,
+                        0 //speed [use 50ms]
+                    )
+                    {
+                        Blend = blendmode
                     };
 
                     break;
 
                 case GraphicEffectType.ScreenFade:
-                    Log.Warn( "Unhandled 'Screen Fade' effect.");
+                    Log.Warn("Unhandled 'Screen Fade' effect.");
 
-                    break;
+                    return;
 
                 default:
-                    Log.Warn( "Unhandled effect.");
+                    Log.Warn("Unhandled effect.");
 
                     return;
             }
 
 
-            Add(effect);
+            PushToBack(effect);
         }
 
-        public void Add(GameEffect effect)
+        public new void Clear()
         {
-            if (effect != null)
+            GameEffect first = (GameEffect) Items;
+
+            while (first != null)
             {
-                if (_root == null)
-                {
-                    _root = effect;
-                    effect.Previous = null;
-                    effect.Next = null;
-                }
-                else
-                {
-                    effect.Next = _root;
-                    _root.Previous = effect;
-                    effect.Previous = null;
-                    _root = effect;
-                }
-            }
-        }
+                LinkedObject n = first.Next;
 
-        public void Clear()
-        {
-            while (_root != null)
-            {
-                var n = _root.Next;
+                first.Destroy();
 
-                foreach (GameEffect child in _root.Children)
-                {
-                    RemoveEffect(child);
-                }
-                
-                _root.Children.Clear();
-
-                RemoveEffect(_root);
-
-                _root = (GameEffect) n;
-            }
-        }
-
-
-        public void RemoveEffect(GameEffect effect)
-        {
-            if (effect == null || effect.IsDestroyed)
-                return;
-
-            if (effect.Previous == null)
-            {
-                _root = (GameEffect) effect.Next;
-
-                if (_root != null)
-                {
-                    _root.Previous = null;
-                }
-            }
-            else
-            {
-                effect.Previous.Next = effect.Next;
-
-                if (effect.Next != null)
-                {
-                    effect.Next.Previous = effect.Previous;
-                }
+                first = (GameEffect) n;
             }
 
-            effect.Next = null;
-            effect.Previous = null;
-            effect.Destroy();
+            Items = null;
         }
     }
 }

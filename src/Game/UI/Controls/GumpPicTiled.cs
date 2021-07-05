@@ -1,25 +1,35 @@
 #region license
-// Copyright (C) 2020 ClassicUO Development Community on Github
+
+// Copyright (c) 2021, andreakarasho
+// All rights reserved.
 // 
-// This project is an alternative client for the game Ultima Online.
-// The goal of this is to develop a lightweight client considering
-// new technologies.
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+// 1. Redistributions of source code must retain the above copyright
+//    notice, this list of conditions and the following disclaimer.
+// 2. Redistributions in binary form must reproduce the above copyright
+//    notice, this list of conditions and the following disclaimer in the
+//    documentation and/or other materials provided with the distribution.
+// 3. All advertising materials mentioning features or use of this software
+//    must display the following acknowledgement:
+//    This product includes software developed by andreakarasho - https://github.com/andreakarasho
+// 4. Neither the name of the copyright holder nor the
+//    names of its contributors may be used to endorse or promote products
+//    derived from this software without specific prior written permission.
 // 
-//  This program is free software: you can redistribute it and/or modify
-//  it under the terms of the GNU General Public License as published by
-//  the Free Software Foundation, either version 3 of the License, or
-//  (at your option) any later version.
-// 
-//  This program is distributed in the hope that it will be useful,
-//  but WITHOUT ANY WARRANTY; without even the implied warranty of
-//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//  GNU General Public License for more details.
-// 
-//  You should have received a copy of the GNU General Public License
-//  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ''AS IS'' AND ANY
+// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+// WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+// DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY
+// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+// (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+// LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+// ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
 #endregion
 
-using System;
 using System.Collections.Generic;
 using ClassicUO.IO.Resources;
 using ClassicUO.Renderer;
@@ -42,8 +52,16 @@ namespace ClassicUO.Game.UI.Controls
         {
             X = x;
             Y = y;
-            Width = width;
-            Height = heigth;
+
+            if (width > 0)
+            {
+                Width = width;
+            }
+
+            if (heigth > 0)
+            {
+                Height = heigth;
+            }
         }
 
         public GumpPicTiled(List<string> parts) : this(UInt16Converter.Parse(parts[5]))
@@ -55,16 +73,6 @@ namespace ClassicUO.Game.UI.Controls
             IsFromServer = true;
         }
 
-        internal GumpPicTiled(int x, int y, int width, int heigth, UOTexture32 texture)
-        {
-            CanMove = true;
-            AcceptMouseInput = true;
-            X = x;
-            Y = y;
-            Width = width;
-            Height = heigth;
-            Graphic = 0xFFFF;
-        }
 
         public ushort Graphic
         {
@@ -75,11 +83,12 @@ namespace ClassicUO.Game.UI.Controls
                 {
                     _graphic = value;
 
-                    var texture = GumpsLoader.Instance.GetTexture(_graphic);
+                    UOTexture texture = GumpsLoader.Instance.GetTexture(_graphic);
 
                     if (texture == null)
                     {
                         Dispose();
+
                         return;
                     }
 
@@ -95,13 +104,29 @@ namespace ClassicUO.Game.UI.Controls
         public override bool Draw(UltimaBatcher2D batcher, int x, int y)
         {
             ResetHueVector();
-            ShaderHuesTraslator.GetHueVector(ref _hueVector, Hue, false, Alpha, true);
 
-            var texture = GumpsLoader.Instance.GetTexture(Graphic);
+            ShaderHueTranslator.GetHueVector
+            (
+                ref HueVector,
+                Hue,
+                false,
+                Alpha,
+                true
+            );
+
+            UOTexture texture = GumpsLoader.Instance.GetTexture(Graphic);
 
             if (texture != null)
             {
-                batcher.Draw2DTiled(texture, x, y, Width, Height, ref _hueVector);
+                batcher.Draw2DTiled
+                (
+                    texture,
+                    x,
+                    y,
+                    Width,
+                    Height,
+                    ref HueVector
+                );
             }
 
             return base.Draw(batcher, x, y);
@@ -112,7 +137,10 @@ namespace ClassicUO.Game.UI.Controls
             int width = Width;
             int height = Height;
 
-            var texture = GumpsLoader.Instance.GetTexture(Graphic);
+            x -= Offset.X;
+            y -= Offset.Y;
+
+            UOTexture texture = GumpsLoader.Instance.GetTexture(Graphic);
 
             if (texture == null)
             {
@@ -120,10 +148,14 @@ namespace ClassicUO.Game.UI.Controls
             }
 
             if (width == 0)
+            {
                 width = texture.Width;
+            }
 
             if (height == 0)
+            {
                 height = texture.Height;
+            }
 
             while (x > texture.Width && width > texture.Width)
             {
@@ -139,10 +171,12 @@ namespace ClassicUO.Game.UI.Controls
 
 
             if (x > width || y > height)
+            {
                 return false;
+            }
 
 
-            return texture.Contains(x, y);
+            return GumpsLoader.Instance.PixelCheck(Graphic, x, y);
         }
     }
 }

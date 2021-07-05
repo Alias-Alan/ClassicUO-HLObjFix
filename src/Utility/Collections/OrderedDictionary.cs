@@ -1,22 +1,33 @@
 ﻿#region license
-// Copyright (C) 2020 ClassicUO Development Community on Github
+
+// Copyright (c) 2021, andreakarasho
+// All rights reserved.
 // 
-// This project is an alternative client for the game Ultima Online.
-// The goal of this is to develop a lightweight client considering
-// new technologies.
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+// 1. Redistributions of source code must retain the above copyright
+//    notice, this list of conditions and the following disclaimer.
+// 2. Redistributions in binary form must reproduce the above copyright
+//    notice, this list of conditions and the following disclaimer in the
+//    documentation and/or other materials provided with the distribution.
+// 3. All advertising materials mentioning features or use of this software
+//    must display the following acknowledgement:
+//    This product includes software developed by andreakarasho - https://github.com/andreakarasho
+// 4. Neither the name of the copyright holder nor the
+//    names of its contributors may be used to endorse or promote products
+//    derived from this software without specific prior written permission.
 // 
-//  This program is free software: you can redistribute it and/or modify
-//  it under the terms of the GNU General Public License as published by
-//  the Free Software Foundation, either version 3 of the License, or
-//  (at your option) any later version.
-// 
-//  This program is distributed in the hope that it will be useful,
-//  but WITHOUT ANY WARRANTY; without even the implied warranty of
-//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//  GNU General Public License for more details.
-// 
-//  You should have received a copy of the GNU General Public License
-//  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ''AS IS'' AND ANY
+// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+// WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+// DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY
+// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+// (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+// LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+// ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
 #endregion
 
 using System;
@@ -102,13 +113,21 @@ namespace ClassicUO.Utility.Collections
         public OrderedDictionary(IOrderedDictionary<TKey, TValue> dictionary)
         {
             Initialize();
-            foreach (KeyValuePair<TKey, TValue> pair in dictionary) _keyedCollection.Add(pair);
+
+            foreach (KeyValuePair<TKey, TValue> pair in dictionary)
+            {
+                _keyedCollection.Add(pair);
+            }
         }
 
         public OrderedDictionary(IOrderedDictionary<TKey, TValue> dictionary, IEqualityComparer<TKey> comparer)
         {
             Initialize(comparer);
-            foreach (KeyValuePair<TKey, TValue> pair in dictionary) _keyedCollection.Add(pair);
+
+            foreach (KeyValuePair<TKey, TValue> pair in dictionary)
+            {
+                _keyedCollection.Add(pair);
+            }
         }
 
         #endregion
@@ -120,9 +139,13 @@ namespace ClassicUO.Utility.Collections
             Comparer = comparer;
 
             if (comparer != null)
+            {
                 _keyedCollection = new KeyedCollection2<TKey, KeyValuePair<TKey, TValue>>(x => x.Key, comparer);
+            }
             else
+            {
                 _keyedCollection = new KeyedCollection2<TKey, KeyValuePair<TKey, TValue>>(x => x.Key);
+            }
         }
 
         public void Add(TKey key, TValue value)
@@ -143,7 +166,9 @@ namespace ClassicUO.Utility.Collections
         public int IndexOf(TKey key)
         {
             if (_keyedCollection.Contains(key))
+            {
                 return _keyedCollection.IndexOf(_keyedCollection[key]);
+            }
 
             return -1;
         }
@@ -165,7 +190,10 @@ namespace ClassicUO.Utility.Collections
 
         public KeyValuePair<TKey, TValue> GetItem(int index)
         {
-            if (index < 0 || index >= _keyedCollection.Count) throw new ArgumentException(string.Format("The index was outside the bounds of the dictionary: {0}", index));
+            if (index < 0 || index >= _keyedCollection.Count)
+            {
+                throw new ArgumentException(string.Format("The index was outside the bounds of the dictionary: {0}", index));
+            }
 
             return _keyedCollection[index];
         }
@@ -180,9 +208,13 @@ namespace ClassicUO.Utility.Collections
         /// </exception>
         public void SetItem(int index, TValue value)
         {
-            if (index < 0 || index >= _keyedCollection.Count) throw new ArgumentException($"The index is outside the bounds of the dictionary: {index}");
+            if (index < 0 || index >= _keyedCollection.Count)
+            {
+                throw new ArgumentException($"The index is outside the bounds of the dictionary: {index}");
+            }
 
             KeyValuePair<TKey, TValue> kvp = new KeyValuePair<TKey, TValue>(_keyedCollection[index].Key, value);
+
             _keyedCollection[index] = kvp;
         }
 
@@ -198,7 +230,10 @@ namespace ClassicUO.Utility.Collections
 
         public void RemoveAt(int index)
         {
-            if (index < 0 || index >= _keyedCollection.Count) throw new ArgumentException($"The index was outside the bounds of the dictionary: {index}");
+            if (index < 0 || index >= _keyedCollection.Count)
+            {
+                throw new ArgumentException($"The index was outside the bounds of the dictionary: {index}");
+            }
 
             _keyedCollection.RemoveAt(index);
         }
@@ -209,7 +244,10 @@ namespace ClassicUO.Utility.Collections
         /// <param name="key">The key associated with the value to get.</param>
         public TValue GetValue(TKey key)
         {
-            if (_keyedCollection.Contains(key) == false) throw new ArgumentException($"The given key is not present in the dictionary: {key}");
+            if (_keyedCollection.Contains(key) == false)
+            {
+                throw new ArgumentException($"The given key is not present in the dictionary: {key}");
+            }
 
             KeyValuePair<TKey, TValue> kvp = _keyedCollection[key];
 
@@ -227,9 +265,13 @@ namespace ClassicUO.Utility.Collections
             int idx = IndexOf(key);
 
             if (idx > -1)
+            {
                 _keyedCollection[idx] = kvp;
+            }
             else
+            {
                 _keyedCollection.Add(kvp);
+            }
         }
 
         public bool TryGetValue(TKey key, out TValue value)
@@ -444,8 +486,7 @@ namespace ClassicUO.Utility.Collections
             _getKeyForItemDelegate = getKeyForItemDelegate ?? throw new ArgumentNullException(DelegateNullExceptionMessage);
         }
 
-        public KeyedCollection2(Func<TItem, TKey> getKeyForItemDelegate, IEqualityComparer<TKey> comparer)
-            : base(comparer)
+        public KeyedCollection2(Func<TItem, TKey> getKeyForItemDelegate, IEqualityComparer<TKey> comparer) : base(comparer)
         {
             _getKeyForItemDelegate = getKeyForItemDelegate ?? throw new ArgumentNullException(DelegateNullExceptionMessage);
         }
@@ -464,12 +505,14 @@ namespace ClassicUO.Utility.Collections
         public void SortByKeys(IComparer<TKey> keyComparer)
         {
             Comparer2<TItem> comparer = new Comparer2<TItem>((x, y) => keyComparer.Compare(GetKeyForItem(x), GetKeyForItem(y)));
+
             Sort(comparer);
         }
 
         public void SortByKeys(Comparison<TKey> keyComparison)
         {
             Comparer2<TItem> comparer = new Comparer2<TItem>((x, y) => keyComparison(GetKeyForItem(x), GetKeyForItem(y)));
+
             Sort(comparer);
         }
 
@@ -488,7 +531,11 @@ namespace ClassicUO.Utility.Collections
         public void Sort(IComparer<TItem> comparer)
         {
             List<TItem> list = Items as List<TItem>;
-            if (list != null) list.Sort(comparer);
+
+            if (list != null)
+            {
+                list.Sort(comparer);
+            }
         }
     }
 

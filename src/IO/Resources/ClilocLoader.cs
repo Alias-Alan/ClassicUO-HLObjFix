@@ -1,101 +1,170 @@
 ﻿#region license
-// Copyright (C) 2020 ClassicUO Development Community on Github
+
+// Copyright (c) 2021, andreakarasho
+// All rights reserved.
 // 
-// This project is an alternative client for the game Ultima Online.
-// The goal of this is to develop a lightweight client considering
-// new technologies.
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+// 1. Redistributions of source code must retain the above copyright
+//    notice, this list of conditions and the following disclaimer.
+// 2. Redistributions in binary form must reproduce the above copyright
+//    notice, this list of conditions and the following disclaimer in the
+//    documentation and/or other materials provided with the distribution.
+// 3. All advertising materials mentioning features or use of this software
+//    must display the following acknowledgement:
+//    This product includes software developed by andreakarasho - https://github.com/andreakarasho
+// 4. Neither the name of the copyright holder nor the
+//    names of its contributors may be used to endorse or promote products
+//    derived from this software without specific prior written permission.
 // 
-//  This program is free software: you can redistribute it and/or modify
-//  it under the terms of the GNU General Public License as published by
-//  the Free Software Foundation, either version 3 of the License, or
-//  (at your option) any later version.
-// 
-//  This program is distributed in the hope that it will be useful,
-//  but WITHOUT ANY WARRANTY; without even the implied warranty of
-//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//  GNU General Public License for more details.
-// 
-//  You should have received a copy of the GNU General Public License
-//  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ''AS IS'' AND ANY
+// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+// WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+// DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY
+// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+// (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+// LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+// ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
 #endregion
 
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
-
 using ClassicUO.Utility;
+using ClassicUO.Utility.Logging;
+using Microsoft.Xna.Framework;
 
 namespace ClassicUO.IO.Resources
 {
     internal class ClilocLoader : UOFileLoader
     {
-        private readonly Dictionary<int, string> _entries = new Dictionary<int, string>();
+        private static ClilocLoader _instance;
         private string _cliloc;
+        private readonly Dictionary<int, string> _entries = new Dictionary<int, string>();
 
         private ClilocLoader()
         {
-
         }
 
-        private static ClilocLoader _instance;
-        public static ClilocLoader Instance
+        public static ClilocLoader Instance => _instance ?? (_instance = new ClilocLoader());
+
+        public Task Load(string lang)
         {
-            get
+            if (string.IsNullOrEmpty(lang))
             {
-                if (_instance == null)
-                {
-                    _instance = new ClilocLoader();
-                }
-
-                return _instance;
+                lang = "enu";
             }
-        }
 
+            _cliloc = $"Cliloc.{lang}";
+            Log.Trace($"searching for: '{_cliloc}'");
 
-        public Task Load(string cliloc)
-        {
-            _cliloc = cliloc;
+            if (!File.Exists(UOFileManager.GetUOFilePath(_cliloc)))
+            {
+                Log.Warn($"'{_cliloc}' not found. Rolled back to Cliloc.enu");
 
-            if (!File.Exists(UOFileManager.GetUOFilePath(cliloc)))
                 _cliloc = "Cliloc.enu";
+            }
 
             return Load();
         }
 
         public override Task Load()
         {
-            return Task.Run(() => {
-                if (string.IsNullOrEmpty(_cliloc))
-                    _cliloc = "Cliloc.enu";
-
-                string path = UOFileManager.GetUOFilePath(_cliloc);
-
-                if (!File.Exists(path))
-                    return;
-
-                using (BinaryReader reader = new BinaryReader(new FileStream(path, FileMode.Open, FileAccess.Read)))
+            return Task.Run
+            (
+                () =>
                 {
-                    reader.ReadInt32();
-                    reader.ReadInt16();
-                    byte[] buffer = new byte[1024];
-
-                    while (reader.BaseStream.Length != reader.BaseStream.Position)
+                    if (string.IsNullOrEmpty(_cliloc))
                     {
-                        int number = reader.ReadInt32();
-                        byte flag = reader.ReadByte();
-                        int length = reader.ReadInt16();
+                        _cliloc = "Cliloc.enu";
+                    }
 
-                        if (length > buffer.Length)
-                            buffer = new byte[(length + 1023) & ~1023];
-                        reader.Read(buffer, 0, length);
-                        string text = string.Intern(Encoding.UTF8.GetString(buffer, 0, length));
+                    string path = UOFileManager.GetUOFilePath(_cliloc);
 
-                        _entries[number] = text;
+                    if (!File.Exists(path))
+                    {
+                        Log.Error($"cliloc not found: '{path}'");
+                        return;
+                    }
+
+                    if (string.Compare(_cliloc, "cliloc.enu", StringComparison.InvariantCultureIgnoreCase) != 0)
+                    { 
+                        string enupath = UOFileManager.GetUOFilePath("Cliloc.enu");
+
+                        using (BinaryReader reader = new BinaryReader(new FileStream(enupath, FileMode.Open, FileAccess.Read)))
+                        {
+                            reader.ReadInt32();
+                            reader.ReadInt16();
+
+                            byte[] buffer = System.Buffers.ArrayPool<byte>.Shared.Rent(1024);
+
+                            try
+                            {
+                                while (reader.BaseStream.Length != reader.BaseStream.Position)
+                                {
+                                    int number = reader.ReadInt32();
+                                    byte flag = reader.ReadByte();
+                                    int length = reader.ReadInt16();
+
+                                    if (length > buffer.Length)
+                                    {
+                                        System.Buffers.ArrayPool<byte>.Shared.Return(buffer);
+
+                                        buffer = System.Buffers.ArrayPool<byte>.Shared.Rent((length + 1023) & ~1023);
+                                    }
+
+                                    reader.Read(buffer, 0, length);
+                                    string text = string.Intern(Encoding.UTF8.GetString(buffer, 0, length));
+
+                                    _entries[number] = text;
+                                }
+                            }
+                            finally
+                            {
+                                System.Buffers.ArrayPool<byte>.Shared.Return(buffer);
+                            }
+                        }
+                    }
+
+                    using (BinaryReader reader = new BinaryReader(new FileStream(path, FileMode.Open, FileAccess.Read)))
+                    {
+                        reader.ReadInt32();
+                        reader.ReadInt16();
+                        byte[] buffer = System.Buffers.ArrayPool<byte>.Shared.Rent(1024);
+
+                        try
+                        {
+                            while (reader.BaseStream.Length != reader.BaseStream.Position)
+                            {
+                                int number = reader.ReadInt32();
+                                byte flag = reader.ReadByte();
+                                int length = reader.ReadInt16();
+
+                                if (length > buffer.Length)
+                                {
+                                    System.Buffers.ArrayPool<byte>.Shared.Return(buffer);
+
+                                    buffer = System.Buffers.ArrayPool<byte>.Shared.Rent((length + 1023) & ~1023);
+                                }
+
+                                reader.Read(buffer, 0, length);
+                                string text = string.Intern(Encoding.UTF8.GetString(buffer, 0, length));
+
+                                _entries[number] = text;
+                            }
+                        }
+                        finally
+                        {
+                            System.Buffers.ArrayPool<byte>.Shared.Return(buffer);
+                        }
                     }
                 }
-            });
-          
+            );
         }
 
         public override void ClearResources()
@@ -106,6 +175,7 @@ namespace ClassicUO.IO.Resources
         public string GetString(int number)
         {
             _entries.TryGetValue(number, out string text);
+
             return text;
         }
 
@@ -114,7 +184,9 @@ namespace ClassicUO.IO.Resources
             string s = GetString(number);
 
             if (string.IsNullOrEmpty(s))
+            {
                 s = replace;
+            }
 
             return s;
         }
@@ -124,147 +196,186 @@ namespace ClassicUO.IO.Resources
             string s = GetString(number);
 
             if (string.IsNullOrEmpty(s) && !string.IsNullOrEmpty(replace))
+            {
                 s = replace;
+            }
 
             if (camelcase && !string.IsNullOrEmpty(s))
+            {
                 s = StringHelper.CapitalizeAllWords(s);
+            }
 
             return s;
         }
 
-        public string Translate(int clilocNum, string arg = "", bool capitalize = false)
+        public unsafe string Translate(int clilocNum, string arg = "", bool capitalize = false)
         {
             string baseCliloc = GetString(clilocNum);
-            if (baseCliloc == null)
-                return null;
 
-            List<string> arguments = new List<string>();
+            if (baseCliloc == null)
+            {
+                return null;
+            }
 
             if (arg == null)
             {
                 arg = "";
             }
 
-            while (arg.Length != 0 && arg[0] == '\t')
-                arg = arg.Remove(0, 1);
+            var roChars = arg.AsSpan();
 
-            for (int i = 0; i < arg.Length; i++)
+
+            // get count of valid args
+            int i = 0;
+            int totalArgs = 0;
+            int trueStart = -1;
+
+            for (; i < roChars.Length; ++i)
             {
-                if (arg[i] == '\t')
+                if (roChars[i] != '\t')
                 {
-                    arguments.Add(arg.Substring(0, i));
-                    arg = arg.Substring(i + 1);
-                    i = 0;
+                    if (trueStart == -1)
+                    {
+                        trueStart = i;
+                    }
+                }
+                else if (trueStart >= 0)
+                {
+                    ++totalArgs;
                 }
             }
 
-            bool has_arguments = arguments.Count != 0;
-
-            arguments.Add(arg);
-
-            //while (true)
-            //{
-            //    int pos = arg.IndexOf('\t');
-
-            //    if (pos != -1)
-            //    {
-            //        arguments.Add(arg.Substring(0, pos));
-            //        arg = arg.Substring(pos + 1);
-            //    }
-            //    else
-            //    {
-            //        arguments.Add(arg);
-
-            //        break;
-            //    }
-            //}
-
-            int index, pos = 0;
-            while (pos < baseCliloc.Length)
+            if (trueStart == -1)
             {
-                pos = baseCliloc.IndexOf('~', pos);
+                trueStart = 0;
+            }
 
-                if (pos == -1)
-                    break;
-
-                int pos2 = baseCliloc.IndexOf('~', pos + 1);
-                if (pos2 == -1) //non valid arg
-                    break;
-
-                index = baseCliloc.IndexOf('_', pos + 1, pos2 - (pos + 1));
-                if (index <= pos)
-                    index = pos2; //there is no underscore inside the bounds, so we use all the part to get the number of argument
-
-                int start = pos + 1;
-                int max = index - start;
-                int count = 0;
-                for (; count < max; count++)
+            // store index locations
+            Point* locations = stackalloc Point[++totalArgs];
+            i = trueStart;
+            for (int j = 0; i < roChars.Length; ++i)
+            {
+                if (roChars[i] == '\t')
                 {
-                    if (!char.IsNumber(baseCliloc[start + count]))
+                    locations[j].X = trueStart;
+                    locations[j].Y = i;
+
+                    trueStart = i + 1;
+
+                    ++j;
+                }
+            }
+
+            bool has_arguments = totalArgs - 1 > 0;
+
+            locations[totalArgs - 1].X = trueStart;
+            locations[totalArgs - 1].Y = i;
+
+            ValueStringBuilder sb = new ValueStringBuilder(baseCliloc.AsSpan());
+            {
+                int index, pos = 0;
+
+                while (pos < sb.Length)
+                {
+                    int poss = pos;
+                    pos = sb.RawChars.Slice(pos, sb.Length - pos).IndexOf('~');
+
+                    if (pos == -1)
                     {
                         break;
                     }
-                }
 
-                if (!int.TryParse(baseCliloc.Substring(start, count), out index))
-                {
-                    return $"MegaCliloc: error for {clilocNum}";
-                }
+                    pos += poss;
 
-                --index;
+                    int pos2 = sb.RawChars.Slice(pos + 1, sb.Length - (pos + 1)).IndexOf('~');
 
-                string a = index < 0 || index >= arguments.Count ? string.Empty : arguments[index];
-
-                if (a.Length > 1)
-                {
-                    if (a[0] == '#')
+                    if (pos2 == -1) //non valid arg
                     {
-                        if (int.TryParse(a.Substring(1), out int id1))
-                            arguments[index] = GetString(id1) ?? string.Empty;
-                        else
-                            arguments[index] = a;
+                        break;
                     }
-                    else if (has_arguments && int.TryParse(a, out int clil))
+
+                    pos2 += pos + 1;
+
+                    index = sb.RawChars.Slice(pos + 1, pos2 - (pos + 1)).IndexOf('_');
+
+                    if (index == -1)
                     {
-                        if (_entries.TryGetValue(clil, out string value) && !string.IsNullOrEmpty(value))
-                            arguments[index] = value;
+                        //there is no underscore inside the bounds, so we use all the part to get the number of argument
+                        index = pos2;
+                    }
+                    else
+                    {
+                        index += pos + 1;
+                    }
+
+                    int start = pos + 1;
+                    int max = index - start;
+                    int count = 0;
+
+                    for (; count < max; count++)
+                    {
+                        if (!char.IsNumber(sb.RawChars[start + count]))
+                        {
+                            break;
+                        }
+                    }
+
+                    if (!int.TryParse(sb.RawChars.Slice(start, count).ToString(), out index))
+                    {
+                        return $"MegaCliloc: error for {clilocNum}";
+                    }
+
+                    --index;
+
+                    var a = index < 0 || index >= totalArgs ? string.Empty.AsSpan() : arg.AsSpan().Slice(locations[index].X, locations[index].Y - locations[index].X);
+
+                    if (a.Length > 1)
+                    {
+                        if (a[0] == '#')
+                        {
+                            if (int.TryParse(a.Slice(1).ToString(), out int id1))
+                            {
+                                var ss = GetString(id1);
+
+                                if (string.IsNullOrEmpty(ss))
+                                {
+                                    a = string.Empty.AsSpan();
+                                }
+                                else
+                                {
+                                    a = ss.AsSpan();
+                                }
+                            }
+                        }
+                        else if (has_arguments && int.TryParse(a.ToString(), out int clil))
+                        {
+                            if (_entries.TryGetValue(clil, out string value) && !string.IsNullOrEmpty(value))
+                            {
+                                a = value.AsSpan();
+                            }
+                        }
+                    }
+
+                    sb.Remove(pos, pos2 - pos + 1);
+                    sb.Insert(pos, a);
+
+                    if (index >= 0 && index < totalArgs)
+                    {
+                        pos += a.Length /*locations[index].Y - locations[index].X*/;
                     }
                 }
 
-                baseCliloc = baseCliloc.Remove(pos, pos2 - pos + 1).Insert(pos, index >= arguments.Count ? string.Empty : arguments[index]);
-                if (index >= 0 && index < arguments.Count)
-                    pos += arguments[index].Length;
+                baseCliloc = sb.ToString();
+
+                sb.Dispose();
+
+                if (capitalize)
+                {
+                    baseCliloc = StringHelper.CapitalizeAllWords(baseCliloc);
+                }
+
+                return baseCliloc;
             }
-
-            //for (int i = 0; i < arguments.Count; i++)
-            //{
-            //    int pos = baseCliloc.IndexOf('~');
-
-            //    if (pos == -1)
-            //        break;
-
-            //    int pos2 = baseCliloc.IndexOf('~', pos + 1);
-
-            //    if (pos2 == -1)
-            //        break;
-
-            //    string a = arguments[i];
-
-            //    if (a.Length > 1 && a[0] == '#')
-            //    {
-            //        if (int.TryParse(a.Substring(1), out int id1))
-            //            arguments[i] = GetString(id1) ?? string.Empty;
-            //        else
-            //            arguments[i] = a;
-            //    }
-
-            //    baseCliloc = baseCliloc.Remove(pos, pos2 - pos + 1).Insert(pos, arguments[i]);
-            //}
-
-            if (capitalize)
-                baseCliloc = StringHelper.CapitalizeAllWords(baseCliloc);
-
-            return baseCliloc;
         }
     }
 }

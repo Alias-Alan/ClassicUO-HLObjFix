@@ -1,34 +1,43 @@
 ﻿#region license
-// Copyright (C) 2020 ClassicUO Development Community on Github
+
+// Copyright (c) 2021, andreakarasho
+// All rights reserved.
 // 
-// This project is an alternative client for the game Ultima Online.
-// The goal of this is to develop a lightweight client considering
-// new technologies.
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+// 1. Redistributions of source code must retain the above copyright
+//    notice, this list of conditions and the following disclaimer.
+// 2. Redistributions in binary form must reproduce the above copyright
+//    notice, this list of conditions and the following disclaimer in the
+//    documentation and/or other materials provided with the distribution.
+// 3. All advertising materials mentioning features or use of this software
+//    must display the following acknowledgement:
+//    This product includes software developed by andreakarasho - https://github.com/andreakarasho
+// 4. Neither the name of the copyright holder nor the
+//    names of its contributors may be used to endorse or promote products
+//    derived from this software without specific prior written permission.
 // 
-//  This program is free software: you can redistribute it and/or modify
-//  it under the terms of the GNU General Public License as published by
-//  the Free Software Foundation, either version 3 of the License, or
-//  (at your option) any later version.
-// 
-//  This program is distributed in the hope that it will be useful,
-//  but WITHOUT ANY WARRANTY; without even the implied warranty of
-//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//  GNU General Public License for more details.
-// 
-//  You should have received a copy of the GNU General Public License
-//  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ''AS IS'' AND ANY
+// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+// WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+// DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY
+// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+// (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+// LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+// ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
 #endregion
 
-using ClassicUO.Configuration;
 using ClassicUO.IO.Resources;
 using ClassicUO.Renderer;
 using ClassicUO.Utility.Collections;
-
 using Microsoft.Xna.Framework;
 
 namespace ClassicUO.Game.GameObjects
 {
-    class TextContainer : LinkedObject
+    internal class TextContainer : LinkedObject
     {
         public int Size, MaxSize = 5;
 
@@ -42,30 +51,32 @@ namespace ClassicUO.Game.GameObjects
                 Remove(Items);
             }
             else
+            {
                 Size++;
+            }
         }
 
 
         public new void Clear()
         {
-            var item = (TextObject) Items;
+            TextObject item = (TextObject) Items;
             Items = null;
 
             while (item != null)
             {
-                var next = (TextObject) item.Next;
+                TextObject next = (TextObject) item.Next;
                 item.Next = null;
                 item.Destroy();
                 Remove(item);
 
-                item =  next;
+                item = next;
             }
 
             Size = 0;
         }
     }
 
-    
+
     internal class OverheadDamage
     {
         private const int DAMAGE_Y_MOVING_TIME = 25;
@@ -94,25 +105,31 @@ namespace ClassicUO.Game.GameObjects
         public void Add(int damage)
         {
             TextObject text_obj = TextObject.Create();
-            text_obj.RenderedText = RenderedText.Create(damage.ToString(), (ushort) (Parent == World.Player ? 0x0034 : 0x0021), 3, false);
+
+            text_obj.RenderedText = RenderedText.Create(damage.ToString(), (ushort) (ReferenceEquals(Parent, World.Player) ? 0x0034 : 0x0021), 3, false);
+
             text_obj.Time = Time.Ticks + 1500;
 
             _messages.AddToFront(text_obj);
 
             if (_messages.Count > 10)
+            {
                 _messages.RemoveFromBack()?.Destroy();
+            }
         }
 
         public void Update()
         {
             if (IsDestroyed)
+            {
                 return;
+            }
 
             _rectangle.Width = 0;
 
             for (int i = 0; i < _messages.Count; i++)
             {
-                var c = _messages[i];
+                TextObject c = _messages[i];
 
                 float delta = c.Time - Time.Ticks;
 
@@ -133,28 +150,28 @@ namespace ClassicUO.Game.GameObjects
                 else if (c.RenderedText != null)
                 {
                     if (_rectangle.Width < c.RenderedText.Width)
+                    {
                         _rectangle.Width = c.RenderedText.Width;
+                    }
                 }
             }
         }
 
-        public void Draw(UltimaBatcher2D batcher, int x, int y, float scale)
+        public void Draw(UltimaBatcher2D batcher)
         {
             if (IsDestroyed || _messages.Count == 0)
+            {
                 return;
-
-            int screenX = ProfileManager.Current.GameWindowPosition.X;
-            int screenY = ProfileManager.Current.GameWindowPosition.Y;
-            int screenW = ProfileManager.Current.GameWindowSize.X;
-            int screenH = ProfileManager.Current.GameWindowSize.Y;
+            }
 
             int offY = 0;
 
+            Point p = new Point();
 
             if (Parent != null)
             {
-                x += Parent.RealScreenPosition.X;
-                y += Parent.RealScreenPosition.Y;
+                p.X += Parent.RealScreenPosition.X;
+                p.Y += Parent.RealScreenPosition.Y;
 
                 _rectangle.X = Parent.RealScreenPosition.X;
                 _rectangle.Y = Parent.RealScreenPosition.Y;
@@ -162,24 +179,34 @@ namespace ClassicUO.Game.GameObjects
                 if (Parent is Mobile m)
                 {
                     if (m.IsGargoyle && m.IsFlying)
+                    {
                         offY += 22;
+                    }
                     else if (!m.IsMounted)
+                    {
                         offY = -22;
+                    }
 
 
-                    AnimationsLoader.Instance.GetAnimationDimensions(m.AnimIndex,
-                                                                  m.GetGraphicForAnimation(),
-                                                                  /*(byte) m.GetDirectionForAnimation()*/ 0,
-                                                                  /*Mobile.GetGroupForAnimation(m, isParent:true)*/ 0,
-                                                                  m.IsMounted,
-                                                                  /*(byte) m.AnimIndex*/ 0,
-                                                                  out int centerX,
-                                                                  out int centerY,
-                                                                  out int width,
-                                                                  out int height);
-                    x += (int) m.Offset.X;
-                    x += 22;
-                    y += (int) (m.Offset.Y - m.Offset.Z - (height + centerY + 8));
+                    AnimationsLoader.Instance.GetAnimationDimensions
+                    (
+                        m.AnimIndex,
+                        m.GetGraphicForAnimation(),
+                        /*(byte) m.GetDirectionForAnimation()*/
+                        0,
+                        /*Mobile.GetGroupForAnimation(m, isParent:true)*/
+                        0,
+                        m.IsMounted,
+                        /*(byte) m.AnimIndex*/
+                        0,
+                        out int centerX,
+                        out int centerY,
+                        out int width,
+                        out int height
+                    );
+
+                    p.X += (int) m.Offset.X + 22;
+                    p.Y += (int) (m.Offset.Y - m.Offset.Z - (height + centerY + 8));
                 }
                 else
                 {
@@ -187,54 +214,39 @@ namespace ClassicUO.Game.GameObjects
 
                     if (texture != null)
                     {
-                        x += 22;
+                        p.X += 22;
                         int yValue = texture.Height >> 1;
 
                         if (Parent is Item it)
                         {
                             if (it.IsCorpse)
+                            {
                                 offY = -22;
+                            }
                         }
                         else if (Parent is Static || Parent is Multi)
+                        {
                             offY = -44;
+                        }
 
-                        y -= yValue;
+                        p.Y -= yValue;
                     }
-
-                   
                 }
             }
 
+            p = Client.Game.Scene.Camera.WorldToScreen(p);
 
-            x = (int) (x / scale);
-            y = (int) (y / scale);
-
-            x -= (int) (screenX / scale);
-            y -= (int) (screenY / scale);
-
-            x += screenX;
-            y += screenY;
-
-
-            foreach (var item in _messages)
+            foreach (TextObject item in _messages)
             {
-                ushort hue = 0;
-
                 if (item.IsDestroyed || item.RenderedText == null || item.RenderedText.IsDestroyed)
+                {
                     continue;
+                }
 
-                //if (ProfileManager.Current.HighlightGameObjects)
-                //{
-                //    if (SelectedObject.LastObject == item)
-                //        hue = 23;
-                //}
-                //else if (SelectedObject.LastObject == item)
-                //    hue = 23;
+                item.X = p.X - (item.RenderedText.Width >> 1);
+                item.Y = p.Y - offY - item.RenderedText.Height - item.OffsetY;
 
-                item.X = x - (item.RenderedText.Width >> 1);
-                item.Y = y - offY - item.RenderedText.Height - item.OffsetY;
-
-                item.RenderedText.Draw(batcher, item.X, item.Y, item.Alpha, hue);
+                item.RenderedText.Draw(batcher, item.X, item.Y, item.Alpha);
                 offY += item.RenderedText.Height;
             }
         }
@@ -243,12 +255,16 @@ namespace ClassicUO.Game.GameObjects
         public void Destroy()
         {
             if (IsDestroyed)
+            {
                 return;
+            }
 
             IsDestroyed = true;
 
-            foreach (var item in _messages)
+            foreach (TextObject item in _messages)
+            {
                 item.Destroy();
+            }
 
             _messages.Clear();
         }

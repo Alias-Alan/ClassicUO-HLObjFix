@@ -1,22 +1,33 @@
 ﻿#region license
-// Copyright (C) 2020 ClassicUO Development Community on Github
+
+// Copyright (c) 2021, andreakarasho
+// All rights reserved.
 // 
-// This project is an alternative client for the game Ultima Online.
-// The goal of this is to develop a lightweight client considering
-// new technologies.
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+// 1. Redistributions of source code must retain the above copyright
+//    notice, this list of conditions and the following disclaimer.
+// 2. Redistributions in binary form must reproduce the above copyright
+//    notice, this list of conditions and the following disclaimer in the
+//    documentation and/or other materials provided with the distribution.
+// 3. All advertising materials mentioning features or use of this software
+//    must display the following acknowledgement:
+//    This product includes software developed by andreakarasho - https://github.com/andreakarasho
+// 4. Neither the name of the copyright holder nor the
+//    names of its contributors may be used to endorse or promote products
+//    derived from this software without specific prior written permission.
 // 
-//  This program is free software: you can redistribute it and/or modify
-//  it under the terms of the GNU General Public License as published by
-//  the Free Software Foundation, either version 3 of the License, or
-//  (at your option) any later version.
-// 
-//  This program is distributed in the hope that it will be useful,
-//  but WITHOUT ANY WARRANTY; without even the implied warranty of
-//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//  GNU General Public License for more details.
-// 
-//  You should have received a copy of the GNU General Public License
-//  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ''AS IS'' AND ANY
+// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+// WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+// DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY
+// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+// (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+// LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+// ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
 #endregion
 
 using System;
@@ -28,9 +39,9 @@ namespace ClassicUO.IO
     internal class UOFileUop : UOFile
     {
         private const uint UOP_MAGIC_NUMBER = 0x50594D;
-        private readonly string _pattern;
         private readonly bool _hasExtra;
         private readonly Dictionary<ulong, UOFileIndex> _hashes = new Dictionary<ulong, UOFileIndex>();
+        private readonly string _pattern;
 
         public UOFileUop(string path, string pattern, bool hasextra = false) : base(path)
         {
@@ -39,10 +50,12 @@ namespace ClassicUO.IO
             Load();
         }
 
-        public bool TryGetUOPData(ulong hash, out UOFileIndex data)
-            => _hashes.TryGetValue(hash, out data);
-
         public int TotalEntriesCount { get; private set; }
+
+        public bool TryGetUOPData(ulong hash, out UOFileIndex data)
+        {
+            return _hashes.TryGetValue(hash, out data);
+        }
 
         protected override void Load()
         {
@@ -51,7 +64,9 @@ namespace ClassicUO.IO
             Seek(0);
 
             if (ReadUInt() != UOP_MAGIC_NUMBER)
+            {
                 throw new ArgumentException("Bad uop file");
+            }
 
             uint version = ReadUInt();
             uint format_timestamp = ReadUInt();
@@ -63,6 +78,7 @@ namespace ClassicUO.IO
             Seek(nextBlock);
             int total = 0;
             int real_total = 0;
+
             do
             {
                 int filesCount = ReadInt();
@@ -81,10 +97,13 @@ namespace ClassicUO.IO
                     int length = flag == 1 ? compressedLength : decompressedLength;
 
                     if (offset == 0)
+                    {
                         continue;
+                    }
 
                     real_total++;
                     offset += headerLength;
+
                     if (_hasExtra)
                     {
                         long curpos = Position;
@@ -92,12 +111,38 @@ namespace ClassicUO.IO
                         short extra1 = (short) ReadInt();
                         short extra2 = (short) ReadInt();
 
-                        _hashes.Add(hash, new UOFileIndex(StartAddress, (uint) Length, offset + 8, compressedLength - 8, decompressedLength, extra1, extra2));
+                        _hashes.Add
+                        (
+                            hash,
+                            new UOFileIndex
+                            (
+                                StartAddress,
+                                (uint) Length,
+                                offset + 8,
+                                compressedLength - 8,
+                                decompressedLength,
+                                extra1,
+                                extra2
+                            )
+                        );
 
                         Seek(curpos);
                     }
                     else
-                        _hashes.Add(hash, new UOFileIndex(StartAddress, (uint) Length, offset, compressedLength, decompressedLength));
+                    {
+                        _hashes.Add
+                        (
+                            hash,
+                            new UOFileIndex
+                            (
+                                StartAddress,
+                                (uint) Length,
+                                offset,
+                                compressedLength,
+                                decompressedLength
+                            )
+                        );
+                    }
                 }
 
                 Seek(nextBlock);
@@ -107,7 +152,9 @@ namespace ClassicUO.IO
         }
 
         public void ClearHashes()
-            => _hashes.Clear();
+        {
+            _hashes.Clear();
+        }
 
         public override void Dispose()
         {
@@ -122,7 +169,7 @@ namespace ClassicUO.IO
                 string file = string.Format(_pattern, i);
                 ulong hash = CreateHash(file);
 
-                if (_hashes.TryGetValue(hash, out var data))
+                if (_hashes.TryGetValue(hash, out UOFileIndex data))
                 {
                     entries[i] = data;
                 }
@@ -134,7 +181,9 @@ namespace ClassicUO.IO
             FillEntries(ref entries);
 
             if (clearHashes)
+            {
                 ClearHashes();
+            }
         }
 
         //public unsafe T[] GetData<T>(int compressedSize, int uncompressedSize) where T : struct
@@ -145,17 +194,6 @@ namespace ClassicUO.IO
 
         //    return data;
         //}
-
-        public unsafe byte[] GetData(int compressedSize, int uncompressedSize) 
-        {
-            byte[] data = new byte[uncompressedSize];
-
-            fixed (byte* destPtr = data)
-                ZLib.Decompress(PositionAddress, compressedSize, 0, (IntPtr) destPtr, uncompressedSize);
-
-
-            return data;
-        }
 
         internal static ulong CreateHash(string s)
         {

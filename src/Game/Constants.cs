@@ -1,24 +1,34 @@
 ﻿#region license
-// Copyright (C) 2020 ClassicUO Development Community on Github
-// 
-// This project is an alternative client for the game Ultima Online.
-// The goal of this is to develop a lightweight client considering
-// new technologies.
-// 
-//  This program is free software: you can redistribute it and/or modify
-//  it under the terms of the GNU General Public License as published by
-//  the Free Software Foundation, either version 3 of the License, or
-//  (at your option) any later version.
-// 
-//  This program is distributed in the hope that it will be useful,
-//  but WITHOUT ANY WARRANTY; without even the implied warranty of
-//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//  GNU General Public License for more details.
-// 
-//  You should have received a copy of the GNU General Public License
-//  along with this program.  If not, see <https://www.gnu.org/licenses/>.
-#endregion
 
+// Copyright (c) 2021, andreakarasho
+// All rights reserved.
+// 
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+// 1. Redistributions of source code must retain the above copyright
+//    notice, this list of conditions and the following disclaimer.
+// 2. Redistributions in binary form must reproduce the above copyright
+//    notice, this list of conditions and the following disclaimer in the
+//    documentation and/or other materials provided with the distribution.
+// 3. All advertising materials mentioning features or use of this software
+//    must display the following acknowledgement:
+//    This product includes software developed by andreakarasho - https://github.com/andreakarasho
+// 4. Neither the name of the copyright holder nor the
+//    names of its contributors may be used to endorse or promote products
+//    derived from this software without specific prior written permission.
+// 
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ''AS IS'' AND ANY
+// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+// WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+// DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY
+// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+// (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+// LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+// ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+#endregion
 
 namespace ClassicUO.Game
 {
@@ -26,15 +36,12 @@ namespace ClassicUO.Game
     {
         public const string WIKI_LINK = "https://github.com/andreakarasho/ClassicUO/wiki";
 
-        public const int MIN_FPS = 15;
+        public const int MIN_FPS = 12;
         public const int MAX_FPS = 250;
         public const int LOGIN_SCREEN_FPS = 60;
 
         public const int CHARACTER_ANIMATION_DELAY = 80;
         public const int ITEM_EFFECT_ANIMATION_DELAY = 50;
-
-        // cannot be a const, due to UOLive implementation
-        public static int MAPS_COUNT = 6;
 
         public const int MAX_STEP_COUNT = 5;
         public const int TURN_DELAY = 100; // original client 12.5 fps = 80ms delay. FIXME: this patch causes a packet throttle. Reverted back to 100ms
@@ -46,6 +53,9 @@ namespace ClassicUO.Game
 
         public const float TIME_FADEOUT_TEXT = 1000;
         public const float TIME_DISPLAY_SYSTEM_MESSAGE_TEXT = 10000;
+
+        public const int MIN_TERRAIN_SHADOWS_LEVEL = 5;
+        public const int MAX_TERRAIN_SHADOWS_LEVEL = 25;
 
         public const int USED_LAYER_COUNT = 23;
 
@@ -62,6 +72,8 @@ namespace ClassicUO.Game
         public const byte ALPHA_TIME = 20;
 
         public const int MAX_OBJECT_HANDLES = 200;
+        public const int OBJECT_HANDLES_GUMP_WIDTH = 100;
+        public const int OBJECT_HANDLES_GUMP_HEIGHT = 18;
 
         public const int SPELLBOOK_1_SPELLS_COUNT = 64;
         public const int SPELLBOOK_2_SPELLS_COUNT = 17;
@@ -72,17 +84,18 @@ namespace ClassicUO.Game
         public const int SPELLBOOK_7_SPELLS_COUNT = 30;
         public const int SPELLBOOK_8_SPELLS_COUNT = 45;
 
-        public const int WAIT_FOR_TARGET_DELAY = 5000;
+        public const int WAIT_FOR_TARGET_DELAY = 4000; //5000; // ## BEGIN - END ## // CONSTANTS
 
         public const int CONTAINER_RECT_STEP = 20;
         public const int CONTAINER_RECT_DEFAULT_POSITION = 40;
         public const int CONTAINER_RECT_LINESTEP = 800;
+        public const int ITEM_GUMP_TEXTURE_OFFSET = 11369;
 
         public const int MAX_LAND_DATA_INDEX_COUNT = 0x4000;
         public const int MAX_STATIC_DATA_INDEX_COUNT = 0x10000;
         public const int MAX_LAND_TEXTURES_DATA_INDEX_COUNT = 0x4000;
         public const int MAX_GUMP_DATA_INDEX_COUNT = 0x10000;
-        public const int MAX_SOUND_DATA_INDEX_COUNT = 0x0800;
+        public const int MAX_SOUND_DATA_INDEX_COUNT = 0xFFFF;
         public const int MAX_MULTI_DATA_INDEX_COUNT = 0x2200;
         public const int MAX_MUSIC_DATA_INDEX_COUNT = 150;
         public const int MAX_ANIMATIONS_DATA_INDEX_COUNT = 2048;
@@ -91,8 +104,8 @@ namespace ClassicUO.Game
         public const ushort FIELD_REPLACE_GRAPHIC = 0x1826;
         public const ushort TREE_REPLACE_GRAPHIC = 0x0E59;
 
-        public const int MIN_CIRCLE_OF_TRANSPARENCY_RADIUS = 20;
-        public const int MAX_CIRCLE_OF_TRANSPARENCY_RADIUS = 200;
+        public const int MIN_CIRCLE_OF_TRANSPARENCY_RADIUS = 50;
+        public const int MAX_CIRCLE_OF_TRANSPARENCY_RADIUS = 1000; //200; // ## BEGIN - END ## // CONSTANTS
 
         public const int MAX_ABILITIES_COUNT = 32;
 
@@ -106,19 +119,18 @@ namespace ClassicUO.Game
 
         public const int OUT_RANGE_COLOR = 0x038B;
         public const int DEAD_RANGE_COLOR = 0x038E;
-
-        public const int DEATH_SCREEN_TIMER = 1500;
-
+        public const int DEATH_SCREEN_TIMER = 750; //1500; // ## BEGIN - END ## // CONSTANTS
         public const float SOUND_DELTA = 250;
 
-        public const int MAX_JOURNAL_HISTORY_COUNT = 100;
+        public const ushort HIGHLIGHT_CURRENT_OBJECT_HUE = 0x014;
 
-        public const uint JOURNAL_LOCALSERIAL = 0xFFFFFFE1;
-        public const uint SKILLSTD_LOCALSERIAL = 0xFFFFFFE2;
-        public const uint PROFILE_LOCALSERIAL = 0xFFFFFFE3;
+        public const int MAX_JOURNAL_HISTORY_COUNT = 250; //100; // ## BEGIN - END ## // CONSTANTS
 
         public const byte MIN_CONTAINER_SIZE_PERC = 50;
         public const byte MAX_CONTAINER_SIZE_PERC = 200;
+
+        public const int MALE_GUMP_OFFSET = 50000;
+        public const int FEMALE_GUMP_OFFSET = 60000;
 
         public const int WEATHER_TIMER = 6 * 60 * 1000;
 
@@ -126,6 +138,9 @@ namespace ClassicUO.Game
         public const int PREDICTABLE_TILE_COUNT = 64 * PREDICTABLE_CHUNKS;
         public const int PREDICTABLE_STATICS = PREDICTABLE_TILE_COUNT * 2;
         public const int PREDICTABLE_MULTIS = PREDICTABLE_TILE_COUNT * 4;
+
+        // cannot be a const, due to UOLive implementation
+        public static int MAPS_COUNT = 6;
 
         public static readonly bool[] BAD_CONTAINER_LAYERS =
         {

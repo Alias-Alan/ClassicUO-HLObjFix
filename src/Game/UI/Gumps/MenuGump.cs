@@ -1,26 +1,36 @@
 ﻿#region license
-// Copyright (C) 2020 ClassicUO Development Community on Github
+
+// Copyright (c) 2021, andreakarasho
+// All rights reserved.
 // 
-// This project is an alternative client for the game Ultima Online.
-// The goal of this is to develop a lightweight client considering
-// new technologies.
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+// 1. Redistributions of source code must retain the above copyright
+//    notice, this list of conditions and the following disclaimer.
+// 2. Redistributions in binary form must reproduce the above copyright
+//    notice, this list of conditions and the following disclaimer in the
+//    documentation and/or other materials provided with the distribution.
+// 3. All advertising materials mentioning features or use of this software
+//    must display the following acknowledgement:
+//    This product includes software developed by andreakarasho - https://github.com/andreakarasho
+// 4. Neither the name of the copyright holder nor the
+//    names of its contributors may be used to endorse or promote products
+//    derived from this software without specific prior written permission.
 // 
-//  This program is free software: you can redistribute it and/or modify
-//  it under the terms of the GNU General Public License as published by
-//  the Free Software Foundation, either version 3 of the License, or
-//  (at your option) any later version.
-// 
-//  This program is distributed in the hope that it will be useful,
-//  but WITHOUT ANY WARRANTY; without even the implied warranty of
-//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//  GNU General Public License for more details.
-// 
-//  You should have received a copy of the GNU General Public License
-//  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ''AS IS'' AND ANY
+// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+// WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+// DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY
+// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+// (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+// LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+// ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
 #endregion
 
 using System.Linq;
-
 using ClassicUO.Game.UI.Controls;
 using ClassicUO.IO.Resources;
 using ClassicUO.Network;
@@ -33,8 +43,8 @@ namespace ClassicUO.Game.UI.Gumps
     internal class MenuGump : Gump
     {
         private readonly ContainerHorizontal _container;
-        private readonly HSliderBar _slider;
         private bool _isDown, _isLeft;
+        private readonly HSliderBar _slider;
 
         public MenuGump(uint serial, uint serv, string name) : base(serial, serv)
         {
@@ -45,13 +55,24 @@ namespace ClassicUO.Game.UI.Gumps
 
             Add(new GumpPic(0, 0, 0x0910, 0));
 
-            Add(new ColorBox(217, 49, 0, 0xFF000001)
-            {
-                X = 40,
-                Y = 42
-            });
+            Add
+            (
+                new ColorBox(217, 49, 0)
+                {
+                    X = 40,
+                    Y = 42
+                }
+            );
 
-            Label label = new Label(name, false, 0x0386, 200, 1, FontStyle.Fixed)
+            Label label = new Label
+            (
+                name,
+                false,
+                0x0386,
+                200,
+                1,
+                FontStyle.Fixed
+            )
             {
                 X = 39,
                 Y = 18
@@ -70,7 +91,20 @@ namespace ClassicUO.Game.UI.Gumps
 
             Add(_container);
 
-            Add(_slider = new HSliderBar(40, _container.Y + _container.Height + 12, 217, 0, 1, 0, HSliderBarStyle.MetalWidgetRecessedBar));
+            Add
+            (
+                _slider = new HSliderBar
+                (
+                    40,
+                    _container.Y + _container.Height + 12,
+                    217,
+                    0,
+                    1,
+                    0,
+                    HSliderBarStyle.MetalWidgetRecessedBar
+                )
+            );
+
             _slider.ValueChanged += (sender, e) => { _container.Value = _slider.Value; };
 
             HitBox left = new HitBox(25, 60, 10, 15)
@@ -103,24 +137,37 @@ namespace ClassicUO.Game.UI.Gumps
             Add(right);
         }
 
-        public override void Update(double totalMS, double frameMS)
+        public override void Update(double totalTime, double frameTime)
         {
-            base.Update(totalMS, frameMS);
+            base.Update(totalTime, frameTime);
 
-            if (_isDown) _container.Value += _isLeft ? -1 : 1;
+            if (_isDown)
+            {
+                _container.Value += _isLeft ? -1 : 1;
+            }
         }
 
 
-        public void AddItem(ushort graphic, ushort hue, string name, int x, int y, int index)
+        public void AddItem
+        (
+            ushort graphic,
+            ushort hue,
+            string name,
+            int x,
+            int y,
+            int index
+        )
         {
-            var texture = ArtLoader.Instance.GetTexture(graphic);
+            ArtTexture texture = ArtLoader.Instance.GetTexture(graphic);
+
             if (texture == null)
             {
                 Log.Error($"invalid texture 0x{graphic:X4}");
+
                 return;
             }
 
-            TextureControl pic = new TextureControl()
+            TextureControl pic = new TextureControl
             {
                 Texture = texture,
                 IsPartial = TileDataLoader.Instance.StaticData[graphic].IsPartialHue,
@@ -135,10 +182,15 @@ namespace ClassicUO.Game.UI.Gumps
 
             pic.MouseDoubleClick += (sender, e) =>
             {
-                NetClient.Socket.Send(new PMenuResponse(LocalSerial, (ushort) ServerSerial, index, graphic, hue));
+                NetClient.Socket.Send_MenuResponse(LocalSerial,
+                                                   (ushort)ServerSerial,
+                                                   index,
+                                                   graphic,
+                                                   hue);
                 Dispose();
                 e.Result = true;
             };
+
             pic.SetTooltip(name);
 
 
@@ -152,7 +204,11 @@ namespace ClassicUO.Game.UI.Gumps
         {
             base.CloseWithRightClick();
 
-            NetClient.Socket.Send(new PMenuResponse(LocalSerial, (ushort) ServerSerial, 0, 0, 0));
+            NetClient.Socket.Send_MenuResponse(LocalSerial,
+                                               (ushort)ServerSerial,
+                                               0,
+                                               0,
+                                               0);
         }
 
 
@@ -166,9 +222,13 @@ namespace ClassicUO.Game.UI.Gumps
                 set
                 {
                     if (value < 0)
+                    {
                         value = 0;
+                    }
                     else if (value > MaxValue)
+                    {
                         value = MaxValue;
+                    }
 
                     _value = value;
                 }
@@ -179,12 +239,8 @@ namespace ClassicUO.Game.UI.Gumps
 
             public override bool Draw(UltimaBatcher2D batcher, int x, int y)
             {
-                Rectangle scissor = ScissorStack.CalculateScissors(Matrix.Identity, x, y, Width, Height);
-
-                if (ScissorStack.PushScissors(batcher.GraphicsDevice, scissor))
+                if (batcher.ClipBegin(x, y, Width, Height))
                 {
-                    batcher.EnableScissorTest(true);
-
                     int width = 0;
                     int maxWidth = Value + Width;
                     bool drawOnly1 = true;
@@ -192,7 +248,9 @@ namespace ClassicUO.Game.UI.Gumps
                     foreach (Control child in Children)
                     {
                         if (!child.IsVisible)
+                        {
                             continue;
+                        }
 
                         child.X = width - Value;
 
@@ -200,7 +258,9 @@ namespace ClassicUO.Game.UI.Gumps
                         {
                         }
                         else if (width + child.Width <= maxWidth)
+                        {
                             child.Draw(batcher, child.X + x, y);
+                        }
                         else
                         {
                             if (drawOnly1)
@@ -213,9 +273,7 @@ namespace ClassicUO.Game.UI.Gumps
                         width += child.Width;
                     }
 
-
-                    batcher.EnableScissorTest(false);
-                    ScissorStack.PopScissors(batcher.GraphicsDevice);
+                    batcher.ClipEnd();
                 }
 
                 return true; // base.Draw(batcher,position, hue);
@@ -226,7 +284,9 @@ namespace ClassicUO.Game.UI.Gumps
                 MaxValue = Children.Sum(s => s.Width) - Width;
 
                 if (MaxValue < 0)
+                {
                     MaxValue = 0;
+                }
             }
         }
     }
@@ -242,19 +302,32 @@ namespace ClassicUO.Game.UI.Gumps
             CanCloseWithRightClick = false;
             IsFromServer = true;
 
-            Add(_resizePic = new ResizePic(0x13EC)
-            {
-                Width = 400,
-                Height = 111111
-            });
+            Add
+            (
+                _resizePic = new ResizePic(0x13EC)
+                {
+                    Width = 400,
+                    Height = 111111
+                }
+            );
 
             Label l;
 
-            Add(l = new Label(name, false, 0x0386, 370, 1)
-            {
-                X = 20,
-                Y = 16
-            });
+            Add
+            (
+                l = new Label
+                (
+                    name,
+                    false,
+                    0x0386,
+                    370,
+                    1
+                )
+                {
+                    X = 20,
+                    Y = 16
+                }
+            );
 
             Width = _resizePic.Width;
             Height = l.Height;
@@ -270,7 +343,17 @@ namespace ClassicUO.Game.UI.Gumps
 
         public int AddItem(string name, int y)
         {
-            RadioButton radio = new RadioButton(0, 0x138A, 0x138B, name, 1, 0x0386, false, 330)
+            RadioButton radio = new RadioButton
+            (
+                0,
+                0x138A,
+                0x138B,
+                name,
+                1,
+                0x0386,
+                false,
+                330
+            )
             {
                 X = 50,
                 Y = y
@@ -286,7 +369,7 @@ namespace ClassicUO.Game.UI.Gumps
             switch (buttonID)
             {
                 case 0: // cancel
-                    NetClient.Socket.Send(new PGrayMenuResponse(LocalSerial, (ushort) ServerSerial, 0));
+                    NetClient.Socket.Send_GrayMenuResponse(LocalSerial, (ushort)ServerSerial, 0);
 
                     Dispose();
 
@@ -300,15 +383,16 @@ namespace ClassicUO.Game.UI.Gumps
                     {
                         if (radioButton.IsChecked)
                         {
-                            NetClient.Socket.Send(new PGrayMenuResponse(LocalSerial, (ushort) ServerSerial, index));
-
+                            NetClient.Socket.Send_GrayMenuResponse(LocalSerial, (ushort)ServerSerial, index);
+                            
+                            Dispose();
                             break;
                         }
 
                         index++;
                     }
 
-                    Dispose();
+                   
 
                     break;
             }

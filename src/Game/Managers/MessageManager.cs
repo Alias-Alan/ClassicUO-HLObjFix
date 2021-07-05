@@ -1,43 +1,49 @@
 ﻿#region license
-// Copyright (C) 2020 ClassicUO Development Community on Github
+
+// Copyright (c) 2021, andreakarasho
+// All rights reserved.
 // 
-// This project is an alternative client for the game Ultima Online.
-// The goal of this is to develop a lightweight client considering
-// new technologies.
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+// 1. Redistributions of source code must retain the above copyright
+//    notice, this list of conditions and the following disclaimer.
+// 2. Redistributions in binary form must reproduce the above copyright
+//    notice, this list of conditions and the following disclaimer in the
+//    documentation and/or other materials provided with the distribution.
+// 3. All advertising materials mentioning features or use of this software
+//    must display the following acknowledgement:
+//    This product includes software developed by andreakarasho - https://github.com/andreakarasho
+// 4. Neither the name of the copyright holder nor the
+//    names of its contributors may be used to endorse or promote products
+//    derived from this software without specific prior written permission.
 // 
-//  This program is free software: you can redistribute it and/or modify
-//  it under the terms of the GNU General Public License as published by
-//  the Free Software Foundation, either version 3 of the License, or
-//  (at your option) any later version.
-// 
-//  This program is distributed in the hope that it will be useful,
-//  but WITHOUT ANY WARRANTY; without even the implied warranty of
-//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//  GNU General Public License for more details.
-// 
-//  You should have received a copy of the GNU General Public License
-//  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ''AS IS'' AND ANY
+// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+// WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+// DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY
+// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+// (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+// LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+// ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
 #endregion
 
 using System;
-using System.ComponentModel;
-using System.Linq;
+using System.Collections.Generic;
 using System.Text;
-
 using ClassicUO.Configuration;
 using ClassicUO.Game.Data;
 using ClassicUO.Game.GameObjects;
+using ClassicUO.Game.UI.Controls;
 using ClassicUO.Game.UI.Gumps;
-using ClassicUO.Input;
 using ClassicUO.IO.Resources;
 using ClassicUO.Renderer;
 using ClassicUO.Utility;
-using ClassicUO.Utility.Logging;
 
 namespace ClassicUO.Game.Managers
 {
-
-
     //enum MessageFont : byte
     //{
     //    INVALID = 0xFF,
@@ -53,7 +59,7 @@ namespace ClassicUO.Game.Managers
     //    SmallLight = 9
     //}
 
-    enum AffixType : byte
+    internal enum AffixType : byte
     {
         Append = 0x00,
         Prepend = 0x01,
@@ -62,58 +68,91 @@ namespace ClassicUO.Game.Managers
     }
 
 
-
     internal static class MessageManager
     {
         public static PromptData PromptData { get; set; }
 
-        public static event EventHandler<UOMessageEventArgs> MessageReceived;
+        public static event EventHandler<MessageEventArgs> MessageReceived;
 
-        public static event EventHandler<UOMessageEventArgs> LocalizedMessageReceived;
+        public static event EventHandler<MessageEventArgs> LocalizedMessageReceived;
 
 
-        public static void HandleMessage(Entity parent, string text, string name, ushort hue, MessageType type, byte font, TEXT_TYPE text_type, bool unicode = false, string lang = null)
+        public static void HandleMessage
+        (
+            Entity parent,
+            string text,
+            string name,
+            ushort hue,
+            MessageType type,
+            byte font,
+            TextType textType,
+            bool unicode = false,
+            string lang = null
+        )
         {
             if (string.IsNullOrEmpty(text))
-                return;
-
-            if (ProfileManager.Current != null && ProfileManager.Current.OverrideAllFonts)
             {
-                font = ProfileManager.Current.ChatFont;
-                unicode = ProfileManager.Current.OverrideAllFontsIsUnicode;
+                return;
+            }
+
+            Profile currentProfile = ProfileManager.CurrentProfile;
+
+            if (currentProfile != null && currentProfile.OverrideAllFonts)
+            {
+                font = currentProfile.ChatFont;
+                unicode = currentProfile.OverrideAllFontsIsUnicode;
             }
 
             switch (type)
             {
+                case MessageType.Command:
+                case MessageType.Encoded:
+                case MessageType.System:
+                case MessageType.Party:
+                case MessageType.Guild:
+                case MessageType.Alliance: break;
+
+
                 case MessageType.Spell:
 
                 {
                     //server hue color per default
                     if (!string.IsNullOrEmpty(text) && SpellDefinition.WordToTargettype.TryGetValue(text, out SpellDefinition spell))
                     {
-                        if (ProfileManager.Current != null && ProfileManager.Current.EnabledSpellFormat && !string.IsNullOrWhiteSpace(ProfileManager.Current.SpellDisplayFormat))
+                        if (currentProfile != null && currentProfile.EnabledSpellFormat && !string.IsNullOrWhiteSpace(currentProfile.SpellDisplayFormat))
                         {
-                            StringBuilder sb = new StringBuilder(ProfileManager.Current.SpellDisplayFormat);
-                            sb.Replace("{power}", spell.PowerWords);
-                            sb.Replace("{spell}", spell.Name);
-                            text = sb.ToString().Trim();
+                            ValueStringBuilder sb = new ValueStringBuilder(currentProfile.SpellDisplayFormat.AsSpan());
+                            {
+                                sb.Replace("{power}".AsSpan(), spell.PowerWords.AsSpan());
+                                sb.Replace("{spell}".AsSpan(), spell.Name.AsSpan());
+
+                                text = sb.ToString().Trim();
+                            }
+                            sb.Dispose();
                         }
 
                         //server hue color per default if not enabled
-                        if (ProfileManager.Current != null && ProfileManager.Current.EnabledSpellHue)
+                        if (currentProfile != null && currentProfile.EnabledSpellHue)
                         {
                             if (spell.TargetType == TargetType.Beneficial)
-                                hue = ProfileManager.Current.BeneficHue;
+                            {
+                                hue = currentProfile.BeneficHue;
+                            }
                             else if (spell.TargetType == TargetType.Harmful)
-                                hue = ProfileManager.Current.HarmfulHue;
+                            {
+                                hue = currentProfile.HarmfulHue;
+                            }
                             else
-                                hue = ProfileManager.Current.NeutralHue;
+                            {
+                                hue = currentProfile.NeutralHue;
+                            }
                         }
                     }
 
                     goto case MessageType.Label;
                 }
 
+                default:
                 case MessageType.Focus:
                 case MessageType.Whisper:
                 case MessageType.Yell:
@@ -122,9 +161,20 @@ namespace ClassicUO.Game.Managers
                 case MessageType.Limit3Spell:
 
                     if (parent == null)
+                    {
                         break;
+                    }
 
-                    TextObject msg = CreateMessage(text, hue, font, unicode, type);
+                    TextObject msg = CreateMessage
+                    (
+                        text,
+                        hue,
+                        font,
+                        unicode,
+                        type,
+                        textType
+                    );
+
                     msg.Owner = parent;
 
                     if (parent is Item it && !it.OnGround)
@@ -134,9 +184,9 @@ namespace ClassicUO.Game.Managers
                         msg.IsTextGump = true;
                         bool found = false;
 
-                        for (var gump = UIManager.Gumps.Last; gump != null; gump = gump.Previous)
+                        for (LinkedListNode<Gump> gump = UIManager.Gumps.Last; gump != null; gump = gump.Previous)
                         {
-                            var g = gump.Value;
+                            Control g = gump.Value;
 
                             if (!g.IsDisposed)
                             {
@@ -145,14 +195,19 @@ namespace ClassicUO.Game.Managers
                                     case PaperDollGump paperDoll when g.LocalSerial == it.Container:
                                         paperDoll.AddText(msg);
                                         found = true;
+
                                         break;
+
                                     case ContainerGump container when g.LocalSerial == it.Container:
                                         container.AddText(msg);
                                         found = true;
+
                                         break;
-                                    case TradingGump trade when g.LocalSerial == it.Container || trade.ID1 == it.Container || trade.ID2 == it.Container:
+
+                                    case TradingGump trade when trade.ID1 == it.Container || trade.ID2 == it.Container:
                                         trade.AddText(msg);
                                         found = true;
+
                                         break;
                                 }
                             }
@@ -167,78 +222,157 @@ namespace ClassicUO.Game.Managers
                     parent.AddMessage(msg);
 
                     break;
-      
 
-                case MessageType.Command:
-                case MessageType.Encoded:
-                case MessageType.System:
-                case MessageType.Party:
-                case MessageType.Guild:
-                case MessageType.Alliance:
 
-                    break;
+                //default:
+                //    if (parent == null)
+                //        break;
 
-                default:
-                    if (parent == null)
-                        break;
+                //    parent.AddMessage(type, text, font, hue, unicode);
 
-                    parent.AddMessage(type, text, font, hue, unicode);
-
-                    break;
+                //    break;
             }
 
-            MessageReceived.Raise(new UOMessageEventArgs(parent, text, name, hue, type, font, text_type, unicode, lang), parent);
+            MessageReceived.Raise
+            (
+                new MessageEventArgs
+                (
+                    parent,
+                    text,
+                    name,
+                    hue,
+                    type,
+                    font,
+                    textType,
+                    unicode,
+                    lang
+                ),
+                parent
+            );
         }
 
-        public static void OnLocalizedMessage(Entity entity, UOMessageEventArgs args)
+        public static void OnLocalizedMessage(Entity entity, MessageEventArgs args)
         {
             LocalizedMessageReceived.Raise(args, entity);
         }
 
-
-        public static TextObject CreateMessage(string msg, ushort hue, byte font, bool isunicode, MessageType type)
+        public static TextObject CreateMessage
+        (
+            string msg,
+            ushort hue,
+            byte font,
+            bool isunicode,
+            MessageType type,
+            TextType textType
+        )
         {
-            if (ProfileManager.Current != null && ProfileManager.Current.OverrideAllFonts)
+            if (ProfileManager.CurrentProfile != null && ProfileManager.CurrentProfile.OverrideAllFonts)
             {
-                font = ProfileManager.Current.ChatFont;
-                isunicode = ProfileManager.Current.OverrideAllFontsIsUnicode;
+                font = ProfileManager.CurrentProfile.ChatFont;
+                isunicode = ProfileManager.CurrentProfile.OverrideAllFontsIsUnicode;
             }
 
             int width = isunicode ? FontsLoader.Instance.GetWidthUnicode(font, msg) : FontsLoader.Instance.GetWidthASCII(font, msg);
 
             if (width > 200)
-                width = isunicode ? FontsLoader.Instance.GetWidthExUnicode(font, msg, 200, TEXT_ALIGN_TYPE.TS_LEFT, (ushort)FontStyle.BlackBorder) : FontsLoader.Instance.GetWidthExASCII(font, msg, 200, TEXT_ALIGN_TYPE.TS_LEFT, (ushort)FontStyle.BlackBorder);
+            {
+                width = isunicode ?
+                    FontsLoader.Instance.GetWidthExUnicode
+                    (
+                        font,
+                        msg,
+                        200,
+                        TEXT_ALIGN_TYPE.TS_LEFT,
+                        (ushort) FontStyle.BlackBorder
+                    ) :
+                    FontsLoader.Instance.GetWidthExASCII
+                    (
+                        font,
+                        msg,
+                        200,
+                        TEXT_ALIGN_TYPE.TS_LEFT,
+                        (ushort) FontStyle.BlackBorder
+                    );
+            }
             else
+            {
                 width = 0;
+            }
 
-            RenderedText rtext = RenderedText.Create(msg, hue, font, isunicode, FontStyle.BlackBorder, TEXT_ALIGN_TYPE.TS_LEFT, width, 30, false, false, true);
 
-            TextObject text_obj = TextObject.Create();
-            text_obj.RenderedText = rtext;
-            text_obj.Alpha = 0xFF;
-            text_obj.Time = CalculateTimeToLive(rtext);
-            text_obj.Type = type;
-            text_obj.Hue = hue;
+            ushort fixedColor = (ushort)(hue & 0x3FFF);
 
-            return text_obj;
+            if (fixedColor != 0)
+            {
+                if (fixedColor >= 0x0BB8)
+                {
+                    fixedColor = 1;
+                }
+
+                fixedColor |= (ushort)(hue & 0xC000);
+            }
+            else
+            {
+                fixedColor = (ushort)(hue & 0x8000);
+            }
+
+
+            TextObject textObject = TextObject.Create();
+            textObject.Alpha = 0xFF;
+            textObject.Type = type;
+            textObject.Hue = fixedColor;
+
+            if (!isunicode && textType == TextType.OBJECT)
+            {
+                fixedColor = 0x7FFF;
+            }
+            
+            textObject.RenderedText = RenderedText.Create
+            (
+                msg,
+                fixedColor,
+                font,
+                isunicode,
+                FontStyle.BlackBorder,
+                TEXT_ALIGN_TYPE.TS_LEFT,
+                width,
+                30,
+                false,
+                false,
+                textType == TextType.OBJECT
+            );
+
+            textObject.Time = CalculateTimeToLive(textObject.RenderedText);
+            textObject.RenderedText.Hue = textObject.Hue;
+
+            return textObject;
         }
 
         private static long CalculateTimeToLive(RenderedText rtext)
         {
+            Profile currentProfile = ProfileManager.CurrentProfile;
+
+            if (currentProfile == null)
+            {
+                return 0;
+            }
+
             long timeToLive;
 
-            if (ProfileManager.Current.ScaleSpeechDelay)
+            if (currentProfile.ScaleSpeechDelay)
             {
-                int delay = ProfileManager.Current.SpeechDelay;
+                int delay = currentProfile.SpeechDelay;
 
                 if (delay < 10)
+                {
                     delay = 10;
+                }
 
-                timeToLive = (long)(4000 * rtext.LinesCount * delay / 100.0f);
+                timeToLive = (long) (4000 * rtext.LinesCount * delay / 100.0f);
             }
             else
             {
-                long delay = (5497558140000 * ProfileManager.Current.SpeechDelay) >> 32 >> 5;
+                long delay = (5497558140000 * currentProfile.SpeechDelay) >> 32 >> 5;
 
                 timeToLive = (delay >> 31) + delay;
             }
@@ -247,49 +381,5 @@ namespace ClassicUO.Game.Managers
 
             return timeToLive;
         }
-
-
-    }
-
-    internal class UOMessageEventArgs : EventArgs
-    {
-        public UOMessageEventArgs(Entity parent, string text, string name, ushort hue, MessageType type, byte font, TEXT_TYPE text_type, bool unicode = false, string lang = null)
-        {
-            Parent = parent;
-            Text = text;
-            Name = name;
-            Hue = hue;
-            Type = type;
-            Font = font;
-            Language = lang;
-            AffixType = AffixType.None;
-            IsUnicode = unicode;
-            TextType = text_type;
-        }
-
-
-        public Entity Parent { get; }
-
-        public string Text { get; }
-
-        public string Name { get; }
-
-        public ushort Hue { get; }
-
-        public MessageType Type { get; }
-
-        public byte Font { get; }
-
-        public string Language { get; }
-
-        public uint Cliloc { get; }
-
-        public AffixType AffixType { get; }
-
-        public string Affix { get; }
-
-        public bool IsUnicode { get; }
-
-        public TEXT_TYPE TextType { get; }
     }
 }

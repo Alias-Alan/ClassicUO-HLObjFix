@@ -1,54 +1,53 @@
 ﻿#region license
-// Copyright (C) 2020 ClassicUO Development Community on Github
+
+// Copyright (c) 2021, andreakarasho
+// All rights reserved.
 // 
-// This project is an alternative client for the game Ultima Online.
-// The goal of this is to develop a lightweight client considering
-// new technologies.
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+// 1. Redistributions of source code must retain the above copyright
+//    notice, this list of conditions and the following disclaimer.
+// 2. Redistributions in binary form must reproduce the above copyright
+//    notice, this list of conditions and the following disclaimer in the
+//    documentation and/or other materials provided with the distribution.
+// 3. All advertising materials mentioning features or use of this software
+//    must display the following acknowledgement:
+//    This product includes software developed by andreakarasho - https://github.com/andreakarasho
+// 4. Neither the name of the copyright holder nor the
+//    names of its contributors may be used to endorse or promote products
+//    derived from this software without specific prior written permission.
 // 
-//  This program is free software: you can redistribute it and/or modify
-//  it under the terms of the GNU General Public License as published by
-//  the Free Software Foundation, either version 3 of the License, or
-//  (at your option) any later version.
-// 
-//  This program is distributed in the hope that it will be useful,
-//  but WITHOUT ANY WARRANTY; without even the implied warranty of
-//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//  GNU General Public License for more details.
-// 
-//  You should have received a copy of the GNU General Public License
-//  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ''AS IS'' AND ANY
+// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+// WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+// DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY
+// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+// (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+// LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+// ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
 #endregion
 
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Xml;
-
-using ClassicUO.Configuration;
 using ClassicUO.Game.UI.Controls;
 using ClassicUO.Game.UI.Gumps;
-
 using Microsoft.Xna.Framework;
 
 namespace ClassicUO.Game.Managers
 {
     internal sealed class AnchorManager
     {
-        enum AnchorDirection
-        {
-            Left,
-            Top,
-            Right,
-            Bottom
-        }
-
         private static readonly Vector2[][] _anchorTriangles =
         {
-            new[] {new Vector2(0f, 0f), new Vector2(0.5f, 0.5f), new Vector2(0f, 1f)},
-            new[] {new Vector2(0f, 0f), new Vector2(0.5f, 0.5f), new Vector2(1f, 0f)},
-            new[] {new Vector2(1f, 0f), new Vector2(0.5f, 0.5f), new Vector2(1f, 1f)},
-            new[] {new Vector2(0f, 1f), new Vector2(0.5f, 0.5f), new Vector2(1f, 1f)}
+            new[] { new Vector2(0f, 0f), new Vector2(0.5f, 0.5f), new Vector2(0f, 1f) },
+            new[] { new Vector2(0f, 0f), new Vector2(0.5f, 0.5f), new Vector2(1f, 0f) },
+            new[] { new Vector2(1f, 0f), new Vector2(0.5f, 0.5f), new Vector2(1f, 1f) },
+            new[] { new Vector2(0f, 1f), new Vector2(0.5f, 0.5f), new Vector2(1f, 1f) }
         };
 
         private static readonly Point[] _anchorDirectionMatrix =
@@ -81,9 +80,13 @@ namespace ClassicUO.Game.Managers
             set
             {
                 if (reverseMap.ContainsKey(control) && value == null)
+                {
                     reverseMap.Remove(control);
+                }
                 else
+                {
                     reverseMap.Add(control, value);
+                }
             }
         }
 
@@ -116,11 +119,14 @@ namespace ClassicUO.Game.Managers
                 if (relativePosition.HasValue)
                 {
                     if (this[host] == null)
+                    {
                         this[host] = new AnchorGroup(host);
+                    }
 
                     if (this[host].IsEmptyDirection(draggedControl, host, relativePosition.Value))
                     {
                         this[host].AnchorControlAt(draggedControl, host, relativePosition.Value);
+
                         this[draggedControl] = this[host];
                     }
                 }
@@ -137,7 +143,7 @@ namespace ClassicUO.Game.Managers
                 {
                     if (this[host] == null || this[host].IsEmptyDirection(draggedControl, host, relativePosition.Value))
                     {
-                        var offset = relativePosition.Value * new Point(g.GroupMatrixWidth, g.GroupMatrixHeight);
+                        Point offset = relativePosition.Value * new Point(g.GroupMatrixWidth, g.GroupMatrixHeight);
 
                         return new Point(host.X + offset.X, host.Y + offset.Y);
                     }
@@ -156,19 +162,21 @@ namespace ClassicUO.Game.Managers
         {
             if (this[control] != null)
             {
-                var group = reverseMap.Where(o => o.Value == this[control]).Select(o => o.Key).ToList();
+                List<AnchorableGump> group = reverseMap.Where(o => o.Value == this[control]).Select(o => o.Key).ToList();
 
                 if (group.Count == 2) // if detach 1+1 - need destroy all group
                 {
-                    foreach (var ctrl in group)
+                    foreach (AnchorableGump ctrl in group)
                     {
                         this[ctrl].DetachControl(ctrl);
+
                         this[ctrl] = null;
                     }
                 }
                 else
                 {
                     this[control].DetachControl(control);
+
                     this[control] = null;
                 }
             }
@@ -178,7 +186,7 @@ namespace ClassicUO.Game.Managers
         {
             if (this[control] != null)
             {
-                foreach (var ctrl in reverseMap.Where(o => o.Value == this[control]).Select(o => o.Key).ToList())
+                foreach (AnchorableGump ctrl in reverseMap.Where(o => o.Value == this[control]).Select(o => o.Key).ToList())
                 {
                     this[ctrl] = null;
                     ctrl.Dispose();
@@ -188,23 +196,25 @@ namespace ClassicUO.Game.Managers
 
         private (Point?, AnchorableGump) GetAnchorDirection(AnchorableGump draggedControl, AnchorableGump host)
         {
-            int xdistancescale = Math.Abs(draggedControl.X - host.X)*100 / host.Width;
-            int ydistancescale = Math.Abs(draggedControl.Y - host.Y)*100 / host.Height;
+            int xdistancescale = Math.Abs(draggedControl.X - host.X) * 100 / host.Width;
+            int ydistancescale = Math.Abs(draggedControl.Y - host.Y) * 100 / host.Height;
 
             if (xdistancescale > ydistancescale)
             {
                 if (draggedControl.X > host.X)
+                {
                     return (new Point(host.WidthMultiplier, 0), host);
-                else
-                    return (new Point(-draggedControl.WidthMultiplier, 0), draggedControl);
+                }
+
+                return (new Point(-draggedControl.WidthMultiplier, 0), draggedControl);
             }
-            else
+
+            if (draggedControl.Y > host.Y)
             {
-                if (draggedControl.Y > host.Y)
-                    return (new Point(0, host.HeightMultiplier), host);
-                else
-                    return (new Point(0, -draggedControl.HeightMultiplier), draggedControl);
+                return (new Point(0, host.HeightMultiplier), host);
             }
+
+            return (new Point(0, -draggedControl.HeightMultiplier), draggedControl);
         }
 
         private bool IsPointInPolygon(Vector2[] polygon, Vector2 point)
@@ -213,9 +223,10 @@ namespace ClassicUO.Game.Managers
 
             for (int i = 0, j = polygon.Length - 1; i < polygon.Length; j = i++)
             {
-                if (polygon[i].Y > point.Y != polygon[j].Y > point.Y &&
-                    point.X < (polygon[j].X - polygon[i].X) * (point.Y - polygon[i].Y) / (polygon[j].Y - polygon[i].Y) + polygon[i].X)
+                if (polygon[i].Y > point.Y != polygon[j].Y > point.Y && point.X < (polygon[j].X - polygon[i].X) * (point.Y - polygon[i].Y) / (polygon[j].Y - polygon[i].Y) + polygon[i].X)
+                {
                     isInside = !isInside;
+                }
             }
 
             return isInside;
@@ -224,18 +235,21 @@ namespace ClassicUO.Game.Managers
         public AnchorableGump ClosestOverlappingControl(AnchorableGump control)
         {
             if (control == null || control.IsDisposed)
+            {
                 return null;
+            }
 
             AnchorableGump closestControl = null;
             int closestDistance = 99999;
 
-            foreach (var c in UIManager.Gumps)
+            foreach (Gump c in UIManager.Gumps)
             {
                 if (!c.IsDisposed && c is AnchorableGump host && host.AnchorType == control.AnchorType)
                 {
                     if (IsOverlapping(control, host))
                     {
                         int dirtyDistance = Math.Abs(control.X - host.X) + Math.Abs(control.Y - host.Y);
+
                         if (dirtyDistance < closestDistance)
                         {
                             closestDistance = dirtyDistance;
@@ -251,15 +265,29 @@ namespace ClassicUO.Game.Managers
         private bool IsOverlapping(AnchorableGump control, AnchorableGump host)
         {
             if (control == host)
+            {
                 return false;
+            }
 
             if (control.Bounds.Top > host.Bounds.Bottom || control.Bounds.Bottom < host.Bounds.Top)
+            {
                 return false;
+            }
 
             if (control.Bounds.Right < host.Bounds.Left || control.Bounds.Left > host.Bounds.Right)
+            {
                 return false;
+            }
 
             return true;
+        }
+
+        private enum AnchorDirection
+        {
+            Left,
+            Top,
+            Right,
+            Bottom
         }
 
         public class AnchorGroup
@@ -282,8 +310,10 @@ namespace ClassicUO.Game.Managers
             {
                 for (int x = 0; x < control.WidthMultiplier; x++)
                 {
-                    for (int y = 0; y < control.HeightMultiplier; y++) 
+                    for (int y = 0; y < control.HeightMultiplier; y++)
+                    {
                         controlMatrix[x + xinit, y + yInit] = control;
+                    }
                 }
             }
 
@@ -292,13 +322,14 @@ namespace ClassicUO.Game.Managers
                 writer.WriteStartElement("anchored_group_gump");
 
                 writer.WriteAttributeString("matrix_w", controlMatrix.GetLength(0).ToString());
+
                 writer.WriteAttributeString("matrix_h", controlMatrix.GetLength(1).ToString());
 
                 for (int y = 0; y < controlMatrix.GetLength(1); y++)
                 {
                     for (int x = 0; x < controlMatrix.GetLength(0); x++)
                     {
-                        var gump = controlMatrix[x, y];
+                        AnchorableGump gump = controlMatrix[x, y];
 
                         if (gump != null)
                         {
@@ -314,12 +345,6 @@ namespace ClassicUO.Game.Managers
                 writer.WriteEndElement();
             }
 
-            public void Load(AnchorableGump control)
-            {
-                
-            }
-
-         
             public void MakeTopMost()
             {
                 for (int x = 0; x < controlMatrix.GetLength(0); x++)
@@ -327,7 +352,9 @@ namespace ClassicUO.Game.Managers
                     for (int y = 0; y < controlMatrix.GetLength(1); y++)
                     {
                         if (controlMatrix[x, y] != null)
+                        {
                             UIManager.MakeTopMostGump(controlMatrix[x, y]);
+                        }
                     }
                 }
             }
@@ -339,7 +366,9 @@ namespace ClassicUO.Game.Managers
                     for (int y = 0; y < controlMatrix.GetLength(1); y++)
                     {
                         if (controlMatrix[x, y] == control)
+                        {
                             controlMatrix[x, y] = null;
+                        }
                     }
                 }
             }
@@ -361,7 +390,9 @@ namespace ClassicUO.Game.Managers
                                 if (!visited.Contains(controlMatrix[x, y]))
                                 {
                                     controlMatrix[x, y].X += deltaX;
+
                                     controlMatrix[x, y].Y += deltaY;
+
                                     visited.Add(controlMatrix[x, y]);
                                 }
                             }
@@ -378,20 +409,28 @@ namespace ClassicUO.Game.Managers
 
                 if (hostPosition.HasValue)
                 {
-                    var targetX = hostPosition.Value.X + relativePosition.X;
-                    var targetY = hostPosition.Value.Y + relativePosition.Y;
+                    int targetX = hostPosition.Value.X + relativePosition.X;
+                    int targetY = hostPosition.Value.Y + relativePosition.Y;
 
                     if (IsEmptyDirection(targetX, targetY))
                     {
                         if (targetX < 0) // Create new column left
+                        {
                             ResizeMatrix(controlMatrix.GetLength(0) + control.WidthMultiplier, controlMatrix.GetLength(1), control.WidthMultiplier, 0);
+                        }
                         else if (targetX > controlMatrix.GetLength(0) - control.WidthMultiplier) // Create new column right
+                        {
                             ResizeMatrix(controlMatrix.GetLength(0) + control.WidthMultiplier, controlMatrix.GetLength(1), 0, 0);
+                        }
 
                         if (targetY < 0) //Create new row top
+                        {
                             ResizeMatrix(controlMatrix.GetLength(0), controlMatrix.GetLength(1) + control.HeightMultiplier, 0, control.HeightMultiplier);
+                        }
                         else if (targetY > controlMatrix.GetLength(1) - 1) // Create new row bottom
+                        {
                             ResizeMatrix(controlMatrix.GetLength(0), controlMatrix.GetLength(1) + control.HeightMultiplier, 0, 0);
+                        }
 
 
                         hostPosition = GetControlCoordinates(host);
@@ -415,11 +454,14 @@ namespace ClassicUO.Game.Managers
 
                 if (hostPosition.HasValue)
                 {
-                    var targetInitPosition = hostPosition.Value + relativePosition;
+                    Point targetInitPosition = hostPosition.Value + relativePosition;
 
                     for (int xOffset = 0; xOffset < draggedControl.WidthMultiplier; xOffset++)
                     {
-                        for (int yOffset = 0; yOffset < draggedControl.HeightMultiplier; yOffset++) isEmpty &= IsEmptyDirection(targetInitPosition.X + xOffset, targetInitPosition.Y + yOffset);
+                        for (int yOffset = 0; yOffset < draggedControl.HeightMultiplier; yOffset++)
+                        {
+                            isEmpty &= IsEmptyDirection(targetInitPosition.X + xOffset, targetInitPosition.Y + yOffset);
+                        }
                     }
 
                     //// TODO: loop through
@@ -434,9 +476,10 @@ namespace ClassicUO.Game.Managers
 
             public bool IsEmptyDirection(int x, int y)
             {
-                if (x < 0 || x > controlMatrix.GetLength(0) - 1
-                          || y < 0 || y > controlMatrix.GetLength(1) - 1)
+                if (x < 0 || x > controlMatrix.GetLength(0) - 1 || y < 0 || y > controlMatrix.GetLength(1) - 1)
+                {
                     return true;
+                }
 
                 return controlMatrix[x, y] == null;
             }
@@ -448,7 +491,9 @@ namespace ClassicUO.Game.Managers
                     for (int y = 0; y < controlMatrix.GetLength(1); y++)
                     {
                         if (controlMatrix[x, y] == control)
+                        {
                             return new Point(x, y);
+                        }
                     }
                 }
 
@@ -462,7 +507,9 @@ namespace ClassicUO.Game.Managers
                 for (int x = 0; x < controlMatrix.GetLength(0); x++)
                 {
                     for (int y = 0; y < controlMatrix.GetLength(1); y++)
+                    {
                         newMatrix[x + xInitial, y + yInitial] = controlMatrix[x, y];
+                    }
                 }
 
                 controlMatrix = newMatrix;
@@ -479,9 +526,13 @@ namespace ClassicUO.Game.Managers
                     for (int x = 0; x < controlMatrix.GetLength(0); x++)
                     {
                         if (controlMatrix[x, y] != null)
+                        {
                             Console.Write(" " + controlMatrix[x, y].LocalSerial + " ");
+                        }
                         else
+                        {
                             Console.Write(" ---------- ");
+                        }
                     }
 
                     Console.WriteLine();

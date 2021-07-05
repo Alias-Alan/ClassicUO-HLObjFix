@@ -1,316 +1,384 @@
 ﻿#region license
-// Copyright (C) 2020 ClassicUO Development Community on Github
+
+// Copyright (c) 2021, andreakarasho
+// All rights reserved.
 // 
-// This project is an alternative client for the game Ultima Online.
-// The goal of this is to develop a lightweight client considering
-// new technologies.
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+// 1. Redistributions of source code must retain the above copyright
+//    notice, this list of conditions and the following disclaimer.
+// 2. Redistributions in binary form must reproduce the above copyright
+//    notice, this list of conditions and the following disclaimer in the
+//    documentation and/or other materials provided with the distribution.
+// 3. All advertising materials mentioning features or use of this software
+//    must display the following acknowledgement:
+//    This product includes software developed by andreakarasho - https://github.com/andreakarasho
+// 4. Neither the name of the copyright holder nor the
+//    names of its contributors may be used to endorse or promote products
+//    derived from this software without specific prior written permission.
 // 
-//  This program is free software: you can redistribute it and/or modify
-//  it under the terms of the GNU General Public License as published by
-//  the Free Software Foundation, either version 3 of the License, or
-//  (at your option) any later version.
-// 
-//  This program is distributed in the hope that it will be useful,
-//  but WITHOUT ANY WARRANTY; without even the implied warranty of
-//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//  GNU General Public License for more details.
-// 
-//  You should have received a copy of the GNU General Public License
-//  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ''AS IS'' AND ANY
+// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+// WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+// DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY
+// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+// (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+// LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+// ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
 #endregion
-
-using System;
-using System.Collections.Generic;
-using System.Linq;
-
-using ClassicUO.Input;
-using ClassicUO.IO.Resources;
-using ClassicUO.Renderer;
-using ClassicUO.Utility;
 
 namespace ClassicUO.Game.UI.Controls
 {
-    internal class MultiSelectionShrinkbox : Control
-    {
-        private readonly int _buttongroup;
-        private readonly ushort _buttonimg, _pressedbuttonimg;
-        private readonly Label _label;
-        //this particular list will be used when inside a scroll area or similar situations where you want to nest a multi selection shrinkbox inside another one,
-        //so that when the parent is deactivated, all the child will be made non visible
-        private readonly List<MultiSelectionShrinkbox> _nestedBoxes = new List<MultiSelectionShrinkbox>();
-        private readonly GumpPic _arrow;
-        private NiceButton[] _buttons;
-        private readonly bool _useArrow2;
-        private string[] _items;
-        private bool _opened;
-        private Button[] _pics;
-        private int _selectedIndex;
+    //internal class MultiSelectionShrinkbox : Control
+    //{
+    //    private readonly GumpPic _arrow;
+    //    private readonly int _buttongroup;
+    //    private readonly ushort _buttonimg, _pressedbuttonimg;
+    //    private NiceButton[] _buttons;
+    //    private string[] _items;
+    //    private readonly Label _label;
+    //    //this particular list will be used when inside a scroll area or similar situations where you want to nest a multi selection shrinkbox inside another one,
+    //    //so that when the parent is deactivated, all the child will be made non visible
+    //    private readonly List<MultiSelectionShrinkbox> _nestedBoxes = new List<MultiSelectionShrinkbox>();
+    //    private bool _opened;
+    //    private Button[] _pics;
+    //    private readonly bool _useArrow2;
 
-        public MultiSelectionShrinkbox(int x, int y, int width, string indextext, string[] items, ushort hue = 0x0453, bool unicode = false, byte font = 9, int group = 0, ushort button = 0, ushort pressedbutton = 0, bool useArrow2 = false) : this(x, y, width, indextext, hue, unicode, font, group, button, pressedbutton, useArrow2)
-        {
-            SetItemsValue(items);
-        }
+    //    public MultiSelectionShrinkbox(int x, int y, int width, string indextext, string[] items, ushort hue = 0x0453, bool unicode = false, byte font = 9, int group = 0, ushort button = 0, ushort pressedbutton = 0, bool useArrow2 = false) : this(x, y, width, indextext, hue, unicode, font, group, button, pressedbutton, useArrow2)
+    //    {
+    //        SetItemsValue(items);
+    //    }
 
-        private MultiSelectionShrinkbox(int x, int y, int width, string indextext, ushort hue, bool unicode, byte font, int group, ushort button, ushort pressedbutton, bool userArrow2 = false)
-        {
-            WantUpdateSize = false;
-            X = x;
-            Y = y;
-            if (button > 0)
-            {
-                _buttonimg = button;
-                if (pressedbutton > 0)
-                    _pressedbuttonimg = pressedbutton;
-                else
-                    _pressedbuttonimg = button;
-            }
-            _buttongroup = group;
-            Width = width;
-            _useArrow2 = userArrow2;
+    //    private MultiSelectionShrinkbox(int x, int y, int width, string indextext, ushort hue, bool unicode, byte font, int group, ushort button, ushort pressedbutton, bool userArrow2 = false)
+    //    {
+    //        WantUpdateSize = false;
+    //        X = x;
+    //        Y = y;
 
-            Add(_label = new Label(indextext, unicode, hue, font: font, align: TEXT_ALIGN_TYPE.TS_LEFT)
-            {
-                X = 18
-            });
-            Height = _label.Height;
+    //        if (button > 0)
+    //        {
+    //            _buttonimg = button;
 
-            Add(_arrow = new GumpPic(1, 1, (ushort)(userArrow2 ? 0x0827 : 0x15E1), 0));
+    //            if (pressedbutton > 0)
+    //            {
+    //                _pressedbuttonimg = pressedbutton;
+    //            }
+    //            else
+    //            {
+    //                _pressedbuttonimg = button;
+    //            }
+    //        }
 
-            _arrow.MouseUp += (sender, state) =>
-            {
-                if (state.Button == MouseButtonType.Left) Opened = !_opened;
-            };
-        }
+    //        _buttongroup = group;
+    //        Width = width;
+    //        _useArrow2 = userArrow2;
 
-        internal bool Opened
-        {
-            get => _opened;
-            set
-            {
-                if (_opened != value)
-                {
-                    _opened = value;
+    //        Add
+    //        (
+    //            _label = new Label(indextext, unicode, hue, font: font, align: TEXT_ALIGN_TYPE.TS_LEFT)
+    //            {
+    //                X = 18
+    //            }
+    //        );
 
-                    if (_opened)
-                    {
-                        _arrow.Graphic = (ushort) (_useArrow2 ? 0x0826 : 0x15E2);
-                        OnBeforeContextMenu?.Invoke(this, null);
-                        GenerateButtons();
+    //        Height = _label.Height;
 
-                        foreach (MultiSelectionShrinkbox msb in _nestedBoxes)
-                        {
-                            msb.IsVisible = true;
-                            msb.OnPageChanged();
-                        }
-                    }
-                    else
-                    {
-                        _arrow.Graphic = (ushort) (_useArrow2 ? 0x0827 : 0x15E1);
-                        ClearButtons();
-                        Height = _label.Height;
-                        OnAfterContextMenu?.Invoke(this, null);
+    //        Add(_arrow = new GumpPic(1, 1, (ushort) (userArrow2 ? 0x0827 : 0x15E1), 0));
 
-                        foreach (MultiSelectionShrinkbox msb in _nestedBoxes)
-                        {
-                            msb.IsVisible = false;
-                            msb.OnPageChanged();
-                        }
-                    }
+    //        _arrow.MouseUp += (sender, state) =>
+    //        {
+    //            if (state.Button == MouseButtonType.Left)
+    //            {
+    //                Opened = !_opened;
+    //            }
+    //        };
+    //    }
 
-                    Parent?.OnPageChanged();
-                }
-            }
-        }
+    //    internal bool Opened
+    //    {
+    //        get => _opened;
+    //        set
+    //        {
+    //            if (_opened != value)
+    //            {
+    //                _opened = value;
 
-        public int SelectedIndex => _selectedIndex;
+    //                if (_opened)
+    //                {
+    //                    _arrow.Graphic = (ushort) (_useArrow2 ? 0x0826 : 0x15E2);
+    //                    OnBeforeContextMenu?.Invoke(this, null);
+    //                    GenerateButtons();
 
-        public string SelectedName
-        {
-            get
-            {
-                if (_items != null && _selectedIndex >= 0 && _selectedIndex < _items.Length)
-                    return _items[_selectedIndex];
-                return null;
-            }
-        }
+    //                    foreach (MultiSelectionShrinkbox msb in _nestedBoxes)
+    //                    {
+    //                        msb.IsVisible = true;
+    //                        msb.OnPageChanged();
+    //                    }
+    //                }
+    //                else
+    //                {
+    //                    _arrow.Graphic = (ushort) (_useArrow2 ? 0x0827 : 0x15E1);
+    //                    ClearButtons();
+    //                    Height = _label.Height;
+    //                    OnAfterContextMenu?.Invoke(this, null);
 
-        internal uint GetItemsLength => (uint)_items.Length;
+    //                    foreach (MultiSelectionShrinkbox msb in _nestedBoxes)
+    //                    {
+    //                        msb.IsVisible = false;
+    //                        msb.OnPageChanged();
+    //                    }
+    //                }
 
-        public string Name => _label == null ? null : _label.Text;
+    //                Parent?.OnPageChanged();
+    //            }
+    //        }
+    //    }
 
-        public MultiSelectionShrinkbox ParentBox { get; private set; }
+    //    public int SelectedIndex { get; private set; }
 
-        internal bool NestBox(MultiSelectionShrinkbox box)
-        {
-            if (_nestedBoxes.Contains(box))
-                return false;
+    //    public string SelectedName
+    //    {
+    //        get
+    //        {
+    //            if (_items != null && SelectedIndex >= 0 && SelectedIndex < _items.Length)
+    //            {
+    //                return _items[SelectedIndex];
+    //            }
 
-            Control c = Parent;
+    //            return null;
+    //        }
+    //    }
 
-            while (c != null)
-            {
-                if (c is ScrollArea area)
-                {
-                    _arrow.IsVisible = true;
-                    _nestedBoxes.Add(box);
-                    box.Width = Width - box.X;
-                    area.Add(box);
-                    if (!_opened) box.IsVisible = false;
-                    box.OnPageChanged();
-                    box.ParentBox = this;
+    //    internal uint GetItemsLength => (uint) _items.Length;
 
-                    return true;
-                }
+    //    public string Name => _label == null ? null : _label.Text;
 
-                c = c.Parent;
-            }
+    //    public MultiSelectionShrinkbox ParentBox { get; private set; }
 
-            return false;
-        }
+    //    internal bool NestBox(MultiSelectionShrinkbox box)
+    //    {
+    //        if (_nestedBoxes.Contains(box))
+    //        {
+    //            return false;
+    //        }
 
-        internal void SetItemsValue(string[] items)
-        {
-            _items = items;
-            if (_opened)
-                GenerateButtons();
-            _arrow.IsVisible = items.Length > 0 || _nestedBoxes.Count > 0;
-        }
+    //        Control c = Parent;
 
-        internal void SetItemsValue(Dictionary<int, string> items)
-        {
-            _items = items.Select(o => o.Value).ToArray();
-            if (_opened)
-                GenerateButtons();
-            _arrow.IsVisible = items.Count > 0 || _nestedBoxes.Count > 0;
-        }
+    //        while (c != null)
+    //        {
+    //            if (c is ScrollArea area)
+    //            {
+    //                _arrow.IsVisible = true;
+    //                _nestedBoxes.Add(box);
+    //                box.Width = Width - box.X;
+    //                area.Add(box);
 
-        private void GenerateButtons()
-        {
-            ClearButtons();
-            _buttons = new NiceButton[_items.Length];
+    //                if (!_opened)
+    //                {
+    //                    box.IsVisible = false;
+    //                }
 
-            if (_buttonimg > 0)
-                _pics = new Button[_items.Length];
+    //                box.OnPageChanged();
+    //                box.ParentBox = this;
 
-            var index = 0;
-            int width = 0;
-            int height = 0;
-            int lh = _label.Height + 2;
+    //                return true;
+    //            }
 
-            foreach (string item in _items)
-            {
-                int w, h;
+    //            c = c.Parent;
+    //        }
 
-                if (_label.Unicode)
-                    w = FontsLoader.Instance.GetWidthUnicode(_label.Font, item);
-                else
-                    w = FontsLoader.Instance.GetWidthASCII(_label.Font, item);
+    //        return false;
+    //    }
 
-                if (w > width)
-                {
-                    if (_label.Unicode)
-                        h = FontsLoader.Instance.GetHeightUnicode(_label.Font, item, w, TEXT_ALIGN_TYPE.TS_LEFT, 0x0);
-                    else
-                        h = FontsLoader.Instance.GetHeightASCII(_label.Font, item, w, TEXT_ALIGN_TYPE.TS_LEFT, 0x0);
-                    width = w;
-                    height = h + 2;
-                }
-            }
+    //    internal void SetItemsValue(string[] items)
+    //    {
+    //        _items = items;
 
-            foreach (var item in _items)
-            {
-                var but = new NiceButton(20, index * height + lh, width, height, ButtonAction.Activate, item, _buttongroup, TEXT_ALIGN_TYPE.TS_LEFT) { Tag = index };
-                if (_buttonimg > 0)
-                {
-                    Add(_pics[index] = new Button(index, _buttonimg, _pressedbuttonimg) { X = 6, Y = index * height + lh + 2, ButtonAction = (ButtonAction)0xBEEF, Tag = index });
-                    _pics[index].MouseUp += Selection_MouseClick;
-                }
-                but.MouseUp += Selection_MouseClick;
-                _buttons[index] = but;
-                Add(but);
-                index++;
-            }
+    //        if (_opened)
+    //        {
+    //            GenerateButtons();
+    //        }
 
-            var totalHeight = _buttons.Length > 0 ? _buttons.Sum(o => o.Height) + lh : lh;
+    //        _arrow.IsVisible = items.Length > 0 || _nestedBoxes.Count > 0;
+    //    }
 
-            Height = totalHeight;
+    //    internal void SetItemsValue(Dictionary<int, string> items)
+    //    {
+    //        _items = items.Select(o => o.Value)
+    //                      .ToArray();
 
-            Parent.WantUpdateSize = true;
-        }
+    //        if (_opened)
+    //        {
+    //            GenerateButtons();
+    //        }
 
-        private void ClearButtons()
-        {
-            if (_buttons != null)
-            {
-                for (int i = _buttons.Length - 1; i >= 0; --i)
-                {
-                    _buttons[i]?.Dispose();
-                    _buttons[i] = null;
-                }
-            }
+    //        _arrow.IsVisible = items.Count > 0 || _nestedBoxes.Count > 0;
+    //    }
 
-            if (_pics != null)
-            {
-                for (int i = _pics.Length - 1; i >= 0; --i)
-                {
-                    _pics[i]?.Dispose();
-                    _pics[i] = null;
-                }
-            }
-        }
+    //    private void GenerateButtons()
+    //    {
+    //        ClearButtons();
+    //        _buttons = new NiceButton[_items.Length];
 
-        private void Selection_MouseClick(object sender, MouseEventArgs e)
-        {
-            if (sender is Control c)
-            {
-                _selectedIndex = (int)c.Tag;
-                if (sender is Button)
-                    _buttons[SelectedIndex].IsSelected = true;
-                if (_buttongroup > 0)
-                    OnGroupSelection();
-                if (_items != null && _selectedIndex >= 0 && _selectedIndex < _items.Length) OnOptionSelected?.Invoke(this, c);
-            }
-        }
+    //        if (_buttonimg > 0)
+    //        {
+    //            _pics = new Button[_items.Length];
+    //        }
 
-        private void OnGroupSelection()
-        {
-            if (Parent != null && Parent.Parent is ScrollArea area)
-            {
-                foreach (Control sai in area.Children)
-                {
-                    if (sai is ScrollAreaItem)
-                    {
-                        foreach (Control c in sai.Children)
-                        {
-                            if (c is MultiSelectionShrinkbox msb && msb._buttongroup == _buttongroup && msb != this && msb._buttons != null)
-                            {
-                                foreach (NiceButton button in msb._buttons)
-                                {
-                                    if(button != null)
-                                        button.IsSelected = false;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
+    //        int index = 0;
+    //        int width = 0;
+    //        int height = 0;
+    //        int lh = _label.Height + 2;
 
-        public event EventHandler<Control> OnOptionSelected;
-        public event EventHandler OnBeforeContextMenu;
-        public event EventHandler OnAfterContextMenu;
+    //        foreach (string item in _items)
+    //        {
+    //            int w, h;
 
-        protected override bool OnMouseDoubleClick(int x, int y, MouseButtonType button)
-        {
-            if (_label.Bounds.Contains(Mouse.Position.X - ScreenCoordinateX, Mouse.Position.Y - ScreenCoordinateY) && button == MouseButtonType.Left)
-                Opened = !_opened;
+    //            if (_label.Unicode)
+    //            {
+    //                w = FontsLoader.Instance.GetWidthUnicode(_label.Font, item);
+    //            }
+    //            else
+    //            {
+    //                w = FontsLoader.Instance.GetWidthASCII(_label.Font, item);
+    //            }
 
-            return base.OnMouseDoubleClick(x, y, button);
-        }
+    //            if (w > width)
+    //            {
+    //                if (_label.Unicode)
+    //                {
+    //                    h = FontsLoader.Instance.GetHeightUnicode(_label.Font, item, w, TEXT_ALIGN_TYPE.TS_LEFT, 0x0);
+    //                }
+    //                else
+    //                {
+    //                    h = FontsLoader.Instance.GetHeightASCII(_label.Font, item, w, TEXT_ALIGN_TYPE.TS_LEFT, 0x0);
+    //                }
 
-        public override void OnPageChanged()
-        {
-            Parent?.OnPageChanged();
-        }
-    }
+    //                width = w;
+    //                height = h + 2;
+    //            }
+    //        }
+
+    //        foreach (string item in _items)
+    //        {
+    //            NiceButton but = new NiceButton(20, index * height + lh, width, height, ButtonAction.Activate, item, _buttongroup, TEXT_ALIGN_TYPE.TS_LEFT) {Tag = index};
+
+    //            if (_buttonimg > 0)
+    //            {
+    //                Add(_pics[index] = new Button(index, _buttonimg, _pressedbuttonimg) {X = 6, Y = index * height + lh + 2, ButtonAction = (ButtonAction) 0xBEEF, Tag = index});
+
+    //                _pics[index]
+    //                    .MouseUp += Selection_MouseClick;
+    //            }
+
+    //            but.MouseUp += Selection_MouseClick;
+    //            _buttons[index] = but;
+    //            Add(but);
+    //            index++;
+    //        }
+
+    //        int totalHeight = _buttons.Length > 0 ? _buttons.Sum(o => o.Height) + lh : lh;
+
+    //        Height = totalHeight;
+
+    //        Parent.WantUpdateSize = true;
+    //    }
+
+    //    private void ClearButtons()
+    //    {
+    //        if (_buttons != null)
+    //        {
+    //            for (int i = _buttons.Length - 1; i >= 0; --i)
+    //            {
+    //                _buttons[i]
+    //                    ?.Dispose();
+
+    //                _buttons[i] = null;
+    //            }
+    //        }
+
+    //        if (_pics != null)
+    //        {
+    //            for (int i = _pics.Length - 1; i >= 0; --i)
+    //            {
+    //                _pics[i]
+    //                    ?.Dispose();
+
+    //                _pics[i] = null;
+    //            }
+    //        }
+    //    }
+
+    //    private void Selection_MouseClick(object sender, MouseEventArgs e)
+    //    {
+    //        if (sender is Control c)
+    //        {
+    //            SelectedIndex = (int) c.Tag;
+
+    //            if (sender is Button)
+    //            {
+    //                _buttons[SelectedIndex]
+    //                    .IsSelected = true;
+    //            }
+
+    //            if (_buttongroup > 0)
+    //            {
+    //                OnGroupSelection();
+    //            }
+
+    //            if (_items != null && SelectedIndex >= 0 && SelectedIndex < _items.Length)
+    //            {
+    //                OnOptionSelected?.Invoke(this, c);
+    //            }
+    //        }
+    //    }
+
+    //    private void OnGroupSelection()
+    //    {
+    //        if (Parent != null && Parent.Parent is ScrollArea area)
+    //        {
+    //            foreach (Control sai in area.Children)
+    //            {
+    //                if (sai is ScrollAreaItem)
+    //                {
+    //                    foreach (Control c in sai.Children)
+    //                    {
+    //                        if (c is MultiSelectionShrinkbox msb && msb._buttongroup == _buttongroup && msb != this && msb._buttons != null)
+    //                        {
+    //                            foreach (NiceButton button in msb._buttons)
+    //                            {
+    //                                if (button != null)
+    //                                {
+    //                                    button.IsSelected = false;
+    //                                }
+    //                            }
+    //                        }
+    //                    }
+    //                }
+    //            }
+    //        }
+    //    }
+
+    //    public event EventHandler<Control> OnOptionSelected;
+    //    public event EventHandler OnBeforeContextMenu;
+    //    public event EventHandler OnAfterContextMenu;
+
+    //    protected override bool OnMouseDoubleClick(int x, int y, MouseButtonType button)
+    //    {
+    //        if (_label.Bounds.Contains(Mouse.Position.X - ScreenCoordinateX, Mouse.Position.Y - ScreenCoordinateY) && button == MouseButtonType.Left)
+    //        {
+    //            Opened = !_opened;
+    //        }
+
+    //        return base.OnMouseDoubleClick(x, y, button);
+    //    }
+
+    //    public override void OnPageChanged()
+    //    {
+    //        Parent?.OnPageChanged();
+    //    }
+    //}
 }

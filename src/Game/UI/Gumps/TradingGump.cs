@@ -1,41 +1,52 @@
 ﻿#region license
-// Copyright (C) 2020 ClassicUO Development Community on Github
+
+// Copyright (c) 2021, andreakarasho
+// All rights reserved.
 // 
-// This project is an alternative client for the game Ultima Online.
-// The goal of this is to develop a lightweight client considering
-// new technologies.
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+// 1. Redistributions of source code must retain the above copyright
+//    notice, this list of conditions and the following disclaimer.
+// 2. Redistributions in binary form must reproduce the above copyright
+//    notice, this list of conditions and the following disclaimer in the
+//    documentation and/or other materials provided with the distribution.
+// 3. All advertising materials mentioning features or use of this software
+//    must display the following acknowledgement:
+//    This product includes software developed by andreakarasho - https://github.com/andreakarasho
+// 4. Neither the name of the copyright holder nor the
+//    names of its contributors may be used to endorse or promote products
+//    derived from this software without specific prior written permission.
 // 
-//  This program is free software: you can redistribute it and/or modify
-//  it under the terms of the GNU General Public License as published by
-//  the Free Software Foundation, either version 3 of the License, or
-//  (at your option) any later version.
-// 
-//  This program is distributed in the hope that it will be useful,
-//  but WITHOUT ANY WARRANTY; without even the implied warranty of
-//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//  GNU General Public License for more details.
-// 
-//  You should have received a copy of the GNU General Public License
-//  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ''AS IS'' AND ANY
+// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+// WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+// DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY
+// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+// (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+// LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+// ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
 #endregion
 
 using System;
 using ClassicUO.Data;
 using ClassicUO.Game.GameObjects;
-using ClassicUO.Game.Scenes;
+using ClassicUO.Game.Managers;
 using ClassicUO.Game.UI.Controls;
 using ClassicUO.Input;
 using ClassicUO.IO.Resources;
 using ClassicUO.Network;
 using ClassicUO.Renderer;
-
+using Microsoft.Xna.Framework;
 
 namespace ClassicUO.Game.UI.Gumps
 {
     internal sealed class TradingGump : TextContainerGump
     {
         private uint _gold, _platinum, _hisGold, _hisPlatinum;
-        private readonly string _name;
+        private readonly Label[] _hisCoins = new Label[2];
         private GumpPic _hisPic;
 
         private bool _imAccepting, _heIsAccepting;
@@ -43,8 +54,8 @@ namespace ClassicUO.Game.UI.Gumps
         private DataBox _myBox, _hisBox;
         private Checkbox _myCheckbox;
         private readonly Label[] _myCoins = new Label[2];
-        private readonly Label[] _hisCoins = new Label[2];
         private readonly StbTextBox[] _myCoinsEntries = new StbTextBox[2];
+        private readonly string _name;
 
         public TradingGump(uint local, string name, uint id1, uint id2) : base(local, 0)
         {
@@ -73,10 +84,13 @@ namespace ClassicUO.Game.UI.Gumps
                     _gold = value;
 
                     if (Client.Version >= ClientVersion.CV_704565)
+                    {
                         _myCoins[0].Text = _gold.ToString();
+                    }
                 }
             }
         }
+
         public uint Platinum
         {
             get => _platinum;
@@ -87,10 +101,13 @@ namespace ClassicUO.Game.UI.Gumps
                     _platinum = value;
 
                     if (Client.Version >= ClientVersion.CV_704565)
+                    {
                         _myCoins[1].Text = _platinum.ToString();
+                    }
                 }
             }
         }
+
         public uint HisGold
         {
             get => _hisGold;
@@ -101,10 +118,13 @@ namespace ClassicUO.Game.UI.Gumps
                     _hisGold = value;
 
                     if (Client.Version >= ClientVersion.CV_704565)
+                    {
                         _hisCoins[0].Text = _hisGold.ToString();
+                    }
                 }
             }
         }
+
         public uint HisPlatinum
         {
             get => _hisPlatinum;
@@ -115,7 +135,9 @@ namespace ClassicUO.Game.UI.Gumps
                     _hisPlatinum = value;
 
                     if (Client.Version >= ClientVersion.CV_704565)
+                    {
                         _hisCoins[1].Text = _hisPlatinum.ToString();
+                    }
                 }
             }
         }
@@ -152,18 +174,29 @@ namespace ClassicUO.Game.UI.Gumps
             Entity container = World.Get(ID1);
 
             if (container == null)
+            {
                 return;
+            }
 
-            foreach (var v in _myBox.Children)
+            foreach (Control v in _myBox.Children)
+            {
                 v.Dispose();
+            }
 
-            var loader = ArtLoader.Instance;
+            ArtLoader loader = ArtLoader.Instance;
 
-            for (var i = container.Items; i != null; i = i.Next)
+            for (LinkedObject i = container.Items; i != null; i = i.Next)
             {
                 Item it = (Item) i;
 
-                ItemGump g = new ItemGump(it.Serial, it.DisplayedGraphic, it.Hue, it.X, it.Y)
+                ItemGump g = new ItemGump
+                (
+                    it.Serial,
+                    it.DisplayedGraphic,
+                    it.Hue,
+                    it.X,
+                    it.Y
+                )
                 {
                     HighlightOnMouseOver = true
                 };
@@ -171,22 +204,30 @@ namespace ClassicUO.Game.UI.Gumps
                 int x = g.X;
                 int y = g.Y;
 
-                var texture = loader.GetTexture(it.DisplayedGraphic);
+                ArtTexture texture = loader.GetTexture(it.DisplayedGraphic);
 
                 if (texture != null)
                 {
-                    if (x + texture.Width > 110)
-                        x = 110 - texture.Width;
+                    if (x + texture.Width > _myBox.Width)
+                    {
+                        x = _myBox.Width - texture.Width;
+                    }
 
-                    if (y + texture.Height > 80)
-                        y = 80 - texture.Height;
+                    if (y + texture.Height > _myBox.Height)
+                    {
+                        y = _myBox.Height - texture.Height;
+                    }
                 }
 
                 if (x < 0)
+                {
                     x = 0;
+                }
 
                 if (y < 0)
+                {
                     y = 0;
+                }
 
 
                 g.X = x;
@@ -198,16 +239,27 @@ namespace ClassicUO.Game.UI.Gumps
             container = World.Get(ID2);
 
             if (container == null)
+            {
                 return;
+            }
 
-            foreach (var v in _hisBox.Children)
+            foreach (Control v in _hisBox.Children)
+            {
                 v.Dispose();
+            }
 
-            for (var i = container.Items; i != null; i = i.Next)
+            for (LinkedObject i = container.Items; i != null; i = i.Next)
             {
                 Item it = (Item) i;
 
-                ItemGump g = new ItemGump(it.Serial, it.DisplayedGraphic, it.Hue, it.X, it.Y)
+                ItemGump g = new ItemGump
+                (
+                    it.Serial,
+                    it.DisplayedGraphic,
+                    it.Hue,
+                    it.X,
+                    it.Y
+                )
                 {
                     HighlightOnMouseOver = true
                 };
@@ -215,22 +267,30 @@ namespace ClassicUO.Game.UI.Gumps
                 int x = g.X;
                 int y = g.Y;
 
-                var texture = loader.GetTexture(it.DisplayedGraphic);
+                ArtTexture texture = loader.GetTexture(it.DisplayedGraphic);
 
                 if (texture != null)
                 {
-                    if (x + texture.Width > 110)
-                        x = 110 - texture.Width;
+                    if (x + texture.Width > _myBox.Width)
+                    {
+                        x = _myBox.Width - texture.Width;
+                    }
 
-                    if (y + texture.Height > 80)
-                        y = 80 - texture.Height;
+                    if (y + texture.Height > _myBox.Height)
+                    {
+                        y = _myBox.Height - texture.Height;
+                    }
                 }
 
                 if (x < 0)
+                {
                     x = 0;
+                }
 
                 if (y < 0)
+                {
                     y = 0;
+                }
 
 
                 g.X = x;
@@ -240,6 +300,76 @@ namespace ClassicUO.Game.UI.Gumps
             }
         }
 
+        protected override void OnMouseUp(int x, int y, MouseButtonType button)
+        {
+            if (button == MouseButtonType.Left)
+            {
+                if (ItemHold.Enabled && !ItemHold.IsFixedPosition)
+                {
+                    if (_myBox != null && _myBox.Bounds.Contains(x, y))
+                    {
+                        ArtTexture texture = ArtLoader.Instance.GetTexture(ItemHold.DisplayedGraphic);
+
+                        x -= _myBox.X;
+                        y -= _myBox.Y;
+
+                        if (texture != null)
+                        {
+                            x -= texture.Width >> 1;
+                            y -= texture.Height >> 1;
+
+                            if (x + texture.Width > _myBox.Width)
+                            {
+                                x = _myBox.Width - texture.Width;
+                            }
+
+                            if (y + texture.Height > _myBox.Height)
+                            {
+                                y = _myBox.Height - texture.Height;
+                            }
+                        }
+
+                        if (x < 0)
+                        {
+                            x = 0;
+                        }
+
+                        if (y < 0)
+                        {
+                            y = 0;
+                        }
+
+                        GameActions.DropItem
+                        (
+                            ItemHold.Serial,
+                            x,
+                            y,
+                            0,
+                            ID1
+                        );
+                    }
+                }
+                else if (SelectedObject.Object is Item it)
+                {
+                    if (TargetManager.IsTargeting)
+                    {
+                        TargetManager.Target(it.Serial);
+                        Mouse.CancelDoubleClick = true;
+
+                        if (TargetManager.TargetingState == CursorTarget.SetTargetClientSide)
+                        {
+                            UIManager.Add(new InspectorGump(it));
+                        }
+                    }
+                    else if (!DelayedObjectClickManager.IsEnabled)
+                    {
+                        Point off = Mouse.LDragOffset;
+
+                        DelayedObjectClickManager.Set(it.Serial, Mouse.Position.X - off.X - ScreenCoordinateX, Mouse.Position.Y - off.Y - ScreenCoordinateY, Time.Ticks + Mouse.MOUSE_DELAY_DOUBLE_CLICK);
+                    }
+                }
+            }
+        }
 
         public override void Dispose()
         {
@@ -294,8 +424,7 @@ namespace ClassicUO.Game.UI.Gumps
             Add(_myCheckbox);
 
 
-            _hisPic = HeIsAccepting ? new GumpPic(otherX, otherY, 0x0869, 0) :
-                          new GumpPic(otherX, otherY, 0x0867, 0);
+            _hisPic = HeIsAccepting ? new GumpPic(otherX, otherY, 0x0869, 0) : new GumpPic(otherX, otherY, 0x0867, 0);
 
             Add(_hisPic);
         }
@@ -308,12 +437,12 @@ namespace ClassicUO.Game.UI.Gumps
             if (Client.Version >= ClientVersion.CV_704565)
             {
                 Add(new GumpPic(0, 0, 0x088A, 0));
-                Add(new Label(World.Player.Name, false, 0x0481, font: 3)
-                        { X = 73, Y = 32 });
+
+                Add(new Label(World.Player.Name, false, 0x0481, font: 3) { X = 73, Y = 32 });
+
                 int fontWidth = 250 - FontsLoader.Instance.GetWidthASCII(3, _name);
 
-                Add(new Label(_name, false, 0x0481, font: 3)
-                        { X = fontWidth, Y = 244 });
+                Add(new Label(_name, false, 0x0481, font: 3) { X = fontWidth, Y = 244 });
 
 
                 _myCoins[0] = new Label("0", false, 0x0481, font: 9)
@@ -321,6 +450,7 @@ namespace ClassicUO.Game.UI.Gumps
                     X = 43,
                     Y = 67
                 };
+
                 Add(_myCoins[0]);
 
                 _myCoins[1] = new Label("0", false, 0x0481, font: 9)
@@ -328,6 +458,7 @@ namespace ClassicUO.Game.UI.Gumps
                     X = 180,
                     Y = 67
                 };
+
                 Add(_myCoins[1]);
 
                 _hisCoins[0] = new Label("0", false, 0x0481, font: 9)
@@ -335,6 +466,7 @@ namespace ClassicUO.Game.UI.Gumps
                     X = 180,
                     Y = 190
                 };
+
                 Add(_hisCoins[0]);
 
                 _hisCoins[1] = new Label("0", false, 0x0481, font: 9)
@@ -342,30 +474,35 @@ namespace ClassicUO.Game.UI.Gumps
                     X = 180,
                     Y = 210
                 };
+
                 Add(_hisCoins[1]);
 
-                _myCoinsEntries[0] = new StbTextBox(9, -1, 100, false, FontStyle.None, 0, IO.Resources.TEXT_ALIGN_TYPE.TS_LEFT)
+                _myCoinsEntries[0] = new StbTextBox(9, -1, 100, false)
                 {
                     X = 43,
                     Y = 190,
                     Width = 100,
                     Height = 20,
                     NumbersOnly = true,
-                    Tag = 0,
+                    Tag = 0
                 };
+
                 _myCoinsEntries[0].SetText("0");
+
                 Add(_myCoinsEntries[0]);
 
-                _myCoinsEntries[1] = new StbTextBox(9, -1, 100, false, FontStyle.None, 0, IO.Resources.TEXT_ALIGN_TYPE.TS_LEFT)
+                _myCoinsEntries[1] = new StbTextBox(9, -1, 100, false)
                 {
                     X = 43,
                     Y = 210,
                     Width = 100,
                     Height = 20,
                     NumbersOnly = true,
-                    Tag = 1,
+                    Tag = 1
                 };
+
                 _myCoinsEntries[1].SetText("0");
+
                 Add(_myCoinsEntries[1]);
 
                 uint my_gold_entry = 0, my_plat_entry = 0;
@@ -406,7 +543,9 @@ namespace ClassicUO.Game.UI.Gumps
                                 }
 
                                 if (my_gold_entry != value)
+                                {
                                     send = true;
+                                }
 
                                 my_gold_entry = value;
                             }
@@ -419,7 +558,9 @@ namespace ClassicUO.Game.UI.Gumps
                                 }
 
                                 if (my_plat_entry != value)
+                                {
                                     send = true;
+                                }
 
                                 my_plat_entry = value;
                             }
@@ -431,11 +572,14 @@ namespace ClassicUO.Game.UI.Gumps
                         }
 
                         if (send)
-                            NetClient.Socket.Send(new PTradeUpdateGold(ID1, my_gold_entry, my_plat_entry));
+                        {
+                            NetClient.Socket.Send_TradeUpdateGold(ID1, my_gold_entry, my_plat_entry);
+                        }
                     }
                 }
 
                 _myCoinsEntries[0].TextChanged += OnTextChanged;
+
                 _myCoinsEntries[1].TextChanged += OnTextChanged;
 
 
@@ -447,12 +591,12 @@ namespace ClassicUO.Game.UI.Gumps
             else
             {
                 Add(new GumpPic(0, 0, 0x0866, 0));
-                Add(new Label(World.Player.Name, false, 0x0386, font: 1)
-                        { X = 84, Y = 40 });
+
+                Add(new Label(World.Player.Name, false, 0x0386, font: 1) { X = 84, Y = 40 });
+
                 int fontWidth = 260 - FontsLoader.Instance.GetWidthASCII(1, _name);
 
-                Add(new Label(_name, false, 0x0386, font: 1)
-                        { X = fontWidth, Y = 170 });
+                Add(new Label(_name, false, 0x0386, font: 1) { X = fontWidth, Y = 170 });
 
                 mydbX = 45;
                 mydbY = 70;
@@ -463,72 +607,49 @@ namespace ClassicUO.Game.UI.Gumps
 
             if (Client.Version < ClientVersion.CV_500A)
             {
-                Add(new ColorBox(110, 60, 0, 0xFF000001)
-                {
-                    X = 45, Y = 90
-                });
-                Add(new ColorBox(110, 60, 0, 0xFF000001)
-                {
-                    X = 192, Y = 70
-                });
+                Add
+                (
+                    new ColorBox(110, 60, 0)
+                    {
+                        X = 45, Y = 90
+                    }
+                );
+
+                Add
+                (
+                    new ColorBox(110, 60, 0)
+                    {
+                        X = 192, Y = 70
+                    }
+                );
             }
 
 
-            Add(_myBox = new DataBox(mydbX, mydbY, 110, 80)
-            {
-                WantUpdateSize = false,
-                ContainsByBounds = true,
-                AcceptMouseInput = true,
-                CanMove = true
-            });
+            Add
+            (
+                _myBox = new DataBox(mydbX, mydbY, 110, 80)
+                {
+                    WantUpdateSize = false,
+                    ContainsByBounds = true,
+                    AcceptMouseInput = true,
+                    CanMove = true
+                }
+            );
 
-            Add(_hisBox = new DataBox(opdbX, opdbY, 110, 80)
-            {
-                WantUpdateSize = false,
-                ContainsByBounds = true,
-                AcceptMouseInput = true,
-                CanMove = true
-            });
+            Add
+            (
+                _hisBox = new DataBox(opdbX, opdbY, 110, 80)
+                {
+                    WantUpdateSize = false,
+                    ContainsByBounds = true,
+                    AcceptMouseInput = true,
+                    CanMove = true
+                }
+            );
 
             SetCheckboxes();
 
             RequestUpdateContents();
-
-            _myBox.MouseUp += (sender, e) =>
-            {
-                if (e.Button == MouseButtonType.Left)
-                {
-                    GameScene gs = Client.Game.GetScene<GameScene>();
-
-                    if (!ItemHold.Enabled || !gs.IsMouseOverUI)
-                        return;
-
-                    ArtTexture texture = ArtLoader.Instance.GetTexture(ItemHold.DisplayedGraphic);
-
-                    int x = e.X;
-                    int y = e.Y;
-
-                    if (texture != null)
-                    {
-                        x -= texture.Width >> 1;
-                        y -= texture.Height >> 1;
-
-                        if (x + texture.Width > 110)
-                            x = 110 - texture.Width;
-
-                        if (y + texture.Height > 80)
-                            y = 80 - texture.Height;
-                    }
-
-                    if (x < 0)
-                        x = 0;
-
-                    if (y < 0)
-                        y = 0;
-
-                    GameActions.DropItem(ItemHold.Serial, x, y, 0, ID1);
-                }
-            };
         }
 
         private void MyCheckboxOnValueChanged(object sender, EventArgs e)
